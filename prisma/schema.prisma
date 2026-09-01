@@ -1,0 +1,108 @@
+// MandateGuard data model.
+// INVARIANT: every money field is an Int of PAISE. Never a Float, never rupees.
+// SQLite has no enums and no arrays: status/verdict are Strings, lists are JSON strings.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Mandate {
+  id            String    @id @default(cuid())
+  userId        String    @default("demo-user")
+  status        String // DRAFT | ACTIVE | REVOKED | EXPIRED | EXHAUSTED
+  intentText    String // the original sentence the user typed
+  rules         String // canonical JSON of MandateRules
+  signature     String // HMAC-SHA256 over canonical(rules)
+  totalCapPaise Int
+  spentPaise    Int       @default(0)
+  expiresAt     DateTime
+  signedAt      DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  runs      AgentRun[]
+  decisions Decision[]
+}
+
+model Merchant {
+  id       String        @id // slug, matched EXACTLY: "bigbasket"
+  name     String
+  category String
+  items    CatalogItem[]
+}
+
+model CatalogItem {
+  id          String   @id
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  name        String
+  category    String
+  pricePaise  Int
+  inStock     Boolean  @default(true)
+  description String // one item deliberately carries the prompt-injection payload
+}
+
+model AgentRun {
+  id        String    @id @default(cuid())
+  mandateId String
+  mandate   Mandate   @relation(fields: [mandateId], references: [id])
+  task      String
+  status    String // RUNNING | COMPLETED | HALTED | ERROR
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  decisions Decision[]
+}
+
+/// THE AUDIT LEDGER. Append-only: never updated, never deleted.
+/// Both ALLOW and BLOCK are recorded — the blocks are the interesting half.
+model Decision {
+  id                  String    @id @default(cuid())
+  seq                 Int       @unique // monotonic, drives the hash chain
+  agentRunId          String?
+  agentRun            AgentRun? @relation(fields: [agentRunId], references: [id])
+  mandateId           String
+  mandate             Mandate   @relation(fields: [mandateId], references: [id])
+  action              String // PURCHASE | MANDATE_ISSUED | MANDATE_REVOKED | AGENT_ERROR
+  requestedAction     String // JSON: { merchantId, itemId, amountPaise, category }
+  verdict             String // ALLOW | BLOCK | ESCALATE
+  reasonCodes         String // JSON string[]
+  explanation         String? // LLM-written, POST-decision. Nullable by design:
+  //                             if the model is down the block still happened.
+  mandateSnapshotHash String // canonicalHash of the rules in force at decision time
+  idempotencyKey      String    @unique // replay protection
+  latencyMs           Int
+  prevHash            String
+  hash                String // sha256(prevHash + canonical(row))
+  createdAt           DateTime  @default(now())
+
+  transaction Transaction?
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  decisionId        String   @unique
+  decision          Decision @relation(fields: [decisionId], references: [id])
+  razorpayOrderId   String
+  razorpayPaymentId String?
+  amountPaise       Int
+  status            String // CREATED | PAID | FAILED
+  createdAt         DateTime @default(now())
+}
+
+model EvalRun {
+  id                String   @id @default(cuid())
+  totalCases        Int
+  blockedCases      Int
+  unauthorizedPaise Int
+  p50LatencyMs      Int
+  p99LatencyMs      Int
+  chainVerified     Boolean
+  resultsJson       String
+  createdAt         DateTime @default(now())
+}
