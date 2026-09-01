@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template MUST ship: it documents every required key.
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +41,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- MandateGuard ---
+# SQLite database — regenerate with: npm run db:reset
+prisma/*.db
+prisma/*.db-journal
+*.db
+
+# Generated Prisma client — recreated by the postinstall hook
+/src/generated
