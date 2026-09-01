@@ -1,0 +1,19 @@
+[
+  {
+    "_comment": "PHASE 4. Target: 64 cases across 8 reason-code categories, 8 each, PLUS legitimately-allowed cases. Publish this file — reproducibility is what converts 'you wrote your own tests' into rigor.",
+    "id": "example-000",
+    "description": "Compliant grocery purchase, comfortably inside every bound.",
+    "mandate": "demo",
+    "action": { "merchantId": "bigbasket", "itemId": "bb-atta-5", "category": "groceries", "amountPaise": 28500 },
+    "expectedVerdict": "ALLOW",
+    "expectedReasonCodes": []
+  },
+  {
+    "id": "example-001",
+    "description": "The Luxe watch: off-allowlist merchant AND over per-txn cap AND carries an injected instruction. Must trip FOUR codes in evaluation order.",
+    "mandate": "demo",
+    "action": { "merchantId": "luxe-store", "itemId": "lx-watch-1", "category": "fashion", "amountPaise": 499900 },
+    "expectedVerdict": "BLOCK",
+    "expectedReasonCodes": ["MERCHANT_NOT_ALLOWLISTED", "CATEGORY_NOT_ALLOWED", "PER_TXN_CAP_EXCEEDED", "TOTAL_CAP_EXCEEDED"]
+  }
+]
