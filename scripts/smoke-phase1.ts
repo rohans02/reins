@@ -32,6 +32,21 @@ const ATTEMPTS = [
 ]
 
 async function main() {
+  // Signing genuinely requires a secret — there is deliberately no default for
+  // a signing key. Fail with instructions rather than a stack trace from deep
+  // inside crypto, since this is the first thing a fresh clone runs.
+  if (!process.env.MANDATE_SIGNING_KEY) {
+    console.error(
+      `MANDATE_SIGNING_KEY is not set.
+
+  cp .env.example .env
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
+    )
+    process.exit(1)
+  }
+
   // Clean slate so the run is repeatable.
   await prisma.decision.deleteMany()
   await prisma.mandate.deleteMany()

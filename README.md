@@ -46,7 +46,7 @@ Other commands:
 ```bash
 npm test                 # policy engine unit tests
 npm run eval             # adversarial suite -> metrics table
-npm run smoke:phase1     # sign -> evaluate -> append -> verify -> tamper detection
+npm run smoke:phase1     # sign -> evaluate -> append -> verify -> tamper detection (needs .env)
 npm run smoke:razorpay   # proves the Orders API works with your test keys
 npm run db:reset         # wipe + reseed (use this between demo takes)
 ```
