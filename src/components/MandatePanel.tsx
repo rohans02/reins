@@ -57,6 +57,16 @@ export function MandatePanel({
 }) {
   const revoked = mandate.status === 'REVOKED'
   const authorized = mandate.authorizedPaise + delta
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  // AlertDialogAction renders a plain Button in this shadcn build, not a Close
+  // primitive, so it does not dismiss on click. Close it ourselves before
+  // running the revoke — otherwise the dialog stays up and holds focus over the
+  // exact moment the demo needs visible.
+  function confirmRevoke() {
+    setConfirmOpen(false)
+    onRevoke()
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -125,7 +135,7 @@ export function MandatePanel({
       </div>
 
       <div className="p-4 border-t border-border">
-        <AlertDialog>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger
             render={
               <Button variant="destructive" disabled={revoked} className="w-full h-9" />
@@ -143,7 +153,7 @@ export function MandatePanel({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={onRevoke}>Revoke</AlertDialogAction>
+              <AlertDialogAction onClick={confirmRevoke}>Revoke</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

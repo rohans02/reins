@@ -182,7 +182,7 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
           <p className="text-muted-foreground">
             An agent with no mandate can spend nothing. Give it bounded authority to begin.
           </p>
-          <Button render={<Link href="/mandates/new" />} className="h-9">
+          <Button render={<Link href="/mandates/new" />} nativeButton={false} className="h-9">
             Create a mandate
           </Button>
         </div>
@@ -196,24 +196,12 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
     <div className="h-full flex flex-col">
       <header className="flex items-center gap-3 px-6 py-3 border-b border-border">
         <div className="min-w-0">
-          <h1 className="text-sm font-semibold tracking-tight">Mission Control</h1>
+          <h1 className="text-base font-semibold tracking-tight">Mission Control</h1>
           <p className="text-[11px] text-muted-foreground">
             The agent proposes. The policy engine decides.
           </p>
         </div>
-
         <div className="flex-1" />
-
-        <Input
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          placeholder="What should the agent do?"
-          disabled={running || revoked}
-          className="max-w-xs h-8"
-        />
-        <Button onClick={runAgent} disabled={running || revoked} className="h-8 shrink-0">
-          {running ? 'Running…' : 'Run agent'}
-        </Button>
         <LedgerSlideOver />
       </header>
 
@@ -228,8 +216,38 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
         </div>
 
         <div className="min-h-0 flex flex-col">
+          {/* Command bar. Sits with the feed it drives rather than in the app
+              header — and above it rather than below, because this is one command
+              then watch, not a conversation. The bottom of this column belongs to
+              the policy strip, which is the differentiator. */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <Input
+              value={task}
+              onChange={(e) => setTask(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !running && !revoked) void runAgent()
+              }}
+              placeholder="What should the agent do?"
+              disabled={running || revoked}
+              className="h-9"
+            />
+            <Button
+              onClick={runAgent}
+              disabled={running || revoked}
+              className="h-9 shrink-0 px-4"
+            >
+              {running ? 'Running…' : 'Run agent'}
+            </Button>
+            {running && (
+              <span className="flex items-center gap-1.5 shrink-0 pl-1">
+                <span className="inline-block size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="font-mono text-[11px] text-muted-foreground">live</span>
+              </span>
+            )}
+          </div>
+
           <div className="flex-1 min-h-0">
-            <ActivityFeed rows={rows} running={running} />
+            <ActivityFeed rows={rows} />
           </div>
 
           <div className="p-4 pt-0 space-y-2">
