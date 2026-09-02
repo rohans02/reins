@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { prisma } from '@/lib/db'
 import { loadLedgerState } from '@/lib/agent/loop'
 import { Sidebar } from '@/components/Sidebar'
 import { Toaster } from '@/components/ui/sonner'
+import { cn } from '@/lib/utils'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -14,26 +16,27 @@ export const metadata: Metadata = {
   description: 'Bounded, revocable, audited spending authority for AI agents on Razorpay rails.',
 }
 
-/**
- * Applied before paint so the theme never flashes. Kept deliberately tiny and
- * defensive — blocked storage must not break the page.
- */
-const THEME_SCRIPT = `try{var t=localStorage.getItem('mg-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`
-
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
-  // The sidebar shows live mandate state, so the layout loads it. Rendered on
-  // the server and refreshed by router.refresh() along with the page.
+  // Theme lives in a cookie so the SERVER can stamp the class onto <html>.
+  // localStorage cannot work here: the server never sees it, so the markup
+  // disagrees on hydration, and the usual fix — a blocking inline <script> —
+  // is exactly what React 19 warns about inside a component.
+  const dark = (await cookies()).get('mg-theme')?.value === 'dark'
+
+  // The sidebar shows live mandate state, so the layout loads it. Refreshed by
+  // router.refresh() along with the page.
   const mandate = await prisma.mandate.findFirst({ orderBy: { createdAt: 'desc' } })
   const ledger = mandate ? await loadLedgerState(mandate.id) : null
 
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
+    <html
+      lang="en"
+      className={cn(geistSans.variable, geistMono.variable, 'h-full antialiased', dark && 'dark')}
+    >
       <body className="min-h-full">
         <div className="flex h-screen">
           <Sidebar
+            dark={dark}
             mandate={
               mandate && ledger
                 ? {

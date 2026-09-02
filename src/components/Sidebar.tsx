@@ -31,7 +31,13 @@ export interface SidebarMandate {
   totalCapPaise: number
 }
 
-export function Sidebar({ mandate }: { mandate: SidebarMandate | null }) {
+export function Sidebar({
+  mandate,
+  dark,
+}: {
+  mandate: SidebarMandate | null
+  dark: boolean
+}) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -104,7 +110,7 @@ export function Sidebar({ mandate }: { mandate: SidebarMandate | null }) {
             razorpay test mode
           </span>
         )}
-        <ThemeToggle collapsed={collapsed} />
+        <ThemeToggle dark={dark} collapsed={collapsed} />
       </div>
     </aside>
   )
