@@ -1,10 +1,21 @@
+import { prisma } from '@/lib/db'
+import { TrustReport } from '@/components/TrustReport'
+import type { EvalMetrics } from '@/lib/eval/runner'
+
 /**
- * Trust Report — the metrics competitors will not have.
- * "Run adversarial suite (64 cases)" + 4 KPI tiles + per-reason-code results table
- * + a hand-written, honest Limitations panel.
- * KPIs: block rate | unauthorized paise (0) | p50/p99 latency | chain verified | purchases completed.
- * Phase 4.
+ * Trust Report — the metrics deliverable.
+ * Server-rendered from the most recent run so the page arrives with numbers in
+ * it; the client half only re-runs the suite on demand.
  */
-export default function TrustPage() {
-  return <main className="p-8">Trust Report — Phase 4</main>
+export const dynamic = 'force-dynamic'
+
+export default async function TrustPage() {
+  const run = await prisma.evalRun.findFirst({ orderBy: { createdAt: 'desc' } })
+
+  return (
+    <TrustReport
+      initialMetrics={run ? (JSON.parse(run.resultsJson) as EvalMetrics) : null}
+      ranAt={run ? run.createdAt.toISOString() : null}
+    />
+  )
 }
