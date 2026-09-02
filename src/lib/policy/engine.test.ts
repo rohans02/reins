@@ -209,6 +209,39 @@ describe('policy engine — the demo case', () => {
   })
 })
 
+describe('policy engine — check pipeline', () => {
+  it('reports every check, passed and failed, in fixed order', () => {
+    const d = evaluate(input())
+    expect(d.checks.map((c) => c.id)).toEqual([
+      'signature', 'replay', 'status', 'expiry', 'merchant',
+      'category', 'perTxnCap', 'totalCap', 'velocity',
+    ])
+    expect(d.checks.every((c) => c.passed)).toBe(true)
+  })
+
+  it('marks exactly the failing checks red and leaves the rest green', () => {
+    const d = evaluate(
+      input({
+        action: {
+          merchantId: 'luxe-store',
+          itemId: 'lx-watch-1',
+          category: 'fashion',
+          amountPaise: 499_900,
+        },
+      }),
+    )
+    const failed = d.checks.filter((c) => !c.passed).map((c) => c.id)
+    expect(failed).toEqual(['merchant', 'category', 'perTxnCap', 'totalCap'])
+    expect(d.checks.filter((c) => c.passed)).toHaveLength(5)
+  })
+
+  it('derives reasonCodes from the failed checks, in the same order', () => {
+    const d = evaluate(input({ status: 'REVOKED' }))
+    const fromChecks = d.checks.filter((c) => !c.passed).map((c) => c.reasonCode)
+    expect(d.reasonCodes).toEqual(fromChecks)
+  })
+})
+
 describe('policy engine — purity', () => {
   it('yields an identical decision for identical input', () => {
     const a = evaluate(input())
