@@ -1,15 +1,35 @@
+import { prisma } from '@/lib/db'
+import { loadLedgerState } from '@/lib/agent/loop'
+import { ConsoleClient } from '@/components/ConsoleClient'
+
 /**
- * ★ HERO SCREEN — ~70% of the 5-minute demo happens here. Build this FIRST in Phase 3.
+ * ★ HERO SCREEN — roughly 70% of the five-minute demo happens here.
  *
- * Above the fold, in priority order:
- *   1. SpendMeter (segmented, animates on each ALLOW) — the bar filling toward a wall
- *   2. REVOKE button (red, top-right, ALWAYS visible — its presence is the product statement)
- *   3. Mandate summary strip: merchants | category | Rs X/txn | expires in Nd
- *   4. Decision feed (newest on top, so the red card lands where the eye already is)
- *   5. Agent transcript (left, secondary — a LOG, not a chat-bubble UI)
- *
- * Must fit above the fold at 1440x900. Never show a full-page spinner here.
+ * A Server Component loads the mandate so the page arrives with data already in
+ * it: no fetch-on-mount, no loading flash, nothing to spin. The interactive half
+ * lives in ConsoleClient, which refreshes this component via router.refresh()
+ * after a run or a revoke.
  */
-export default function ConsolePage() {
-  return <main className="p-8">Agent Console — Phase 3</main>
+export const dynamic = 'force-dynamic'
+
+export default async function ConsolePage() {
+  const mandate = await prisma.mandate.findFirst({ orderBy: { createdAt: 'desc' } })
+  if (!mandate) return <ConsoleClient mandate={null} />
+
+  const ledger = await loadLedgerState(mandate.id)
+
+  return (
+    <ConsoleClient
+      mandate={{
+        id: mandate.id,
+        status: mandate.status,
+        intentText: mandate.intentText,
+        rules: JSON.parse(mandate.rules) as never,
+        totalCapPaise: mandate.totalCapPaise,
+        authorizedPaise: ledger.spentPaise,
+        settledPaise: mandate.spentPaise,
+        expiresAt: mandate.expiresAt.toISOString(),
+      }}
+    />
+  )
 }
