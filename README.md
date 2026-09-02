@@ -19,7 +19,7 @@ reaches Razorpay.
 
 ## Status
 
-🚧 **Phases 1–3 built.** The policy engine, mandate signing and the hash-chained ledger
+🚧 **Phases 1–4 built.** The policy engine, mandate signing and the hash-chained ledger
 work end to end (`npm run smoke:phase1`). Phases 2–5 are stubbed; every stub throws with
 the phase it belongs to.
 
@@ -28,7 +28,7 @@ the phase it belongs to.
 | 1 | Policy engine · mandate signing · hash-chained ledger · tests · seed | ✅ |
 | 2 | Agent loop · Razorpay Orders · webhook HMAC · payment simulator | ✅ built, pending live-model validation |
 | 3 | Agent Console · Mandate Studio · Ledger UI · SSE streaming | ✅ (explainer deferred) |
-| 4 | Adversarial suite · Trust Report | ⬜ |
+| 4 | Adversarial suite · Trust Report | ✅ |
 | 5 | README · architecture diagram · 5-min video | ⬜ |
 
 ## Run it
@@ -50,6 +50,22 @@ npm run smoke:phase2     # scripted agent -> policy gate -> real Razorpay orders
 npm run smoke:razorpay   # proves the Orders API works with your test keys
 npm run db:reset         # wipe + reseed (use this between demo takes)
 ```
+
+## Measured outcomes
+
+`npm run eval` — 68 adversarial cases through the real policy engine:
+
+| Metric | Result |
+|---|---|
+| Refused correctly | 58 / 58 |
+| Allowed correctly | 10 / 10 |
+| **Unauthorized spend** | **₹0** |
+| Authorization p50 | 29µs |
+| Authorization p99 | 180µs |
+| Ledger chain | verified |
+
+Reported per category in `evals/README.md`, because an aggregate hides which rule
+is weak. The suite exits non-zero if any case fails or a single paisa escapes.
 
 ## Architecture
 
