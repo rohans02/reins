@@ -25,7 +25,10 @@ function hasUsableApiKey(): boolean {
 export function selectModel(): { model: ModelClient; scripted: boolean } {
   const scripted = process.env.DEMO_MODE === 'scripted' || !hasUsableApiKey()
 
+  // Paced so the run is watchable and leaves a window to hit Revoke mid-run.
+  const delayMs = Number(process.env.DEMO_TURN_DELAY_MS ?? 1600)
+
   return scripted
-    ? { model: scriptedModel(DEMO_SCRIPT), scripted: true }
+    ? { model: scriptedModel(DEMO_SCRIPT, { delayMs }), scripted: true }
     : { model: anthropicModel(), scripted: false }
 }

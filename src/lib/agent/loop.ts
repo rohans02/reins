@@ -7,6 +7,7 @@ import { append } from '@/lib/ledger/append'
 import { executePayment } from '@/lib/razorpay/execute'
 import { AGENT_TOOLS, TOOL_NAMES } from './tools'
 import { buyerAgentSystemPrompt, wrapUntrusted } from './prompts'
+import type { CheckResult } from '@/lib/policy/engine'
 import type { ModelClient, ToolUse } from './model'
 
 /**
@@ -35,6 +36,9 @@ export type AgentEvent =
       decisionId: string
       verdict: string
       reasonCodes: string[]
+      /** Every check that ran, passed and failed — drives the pipeline strip. */
+      checks: CheckResult[]
+      merchantId: string
       itemId: string
       amountPaise: number
       latencyMs: number
@@ -201,6 +205,8 @@ async function* handlePurchase(args: {
     decisionId,
     verdict: decision.verdict,
     reasonCodes: decision.reasonCodes,
+    checks: decision.checks,
+    merchantId: action.merchantId,
     itemId: action.itemId,
     amountPaise: action.amountPaise,
     latencyMs: decision.latencyMs,

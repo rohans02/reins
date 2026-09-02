@@ -122,12 +122,20 @@ export interface ScriptedTurn {
  * conversation cleanly rather than throwing, so a loop that stops early (because
  * the mandate was revoked, say) is not a test failure.
  */
-export function scriptedModel(script: ScriptedTurn[]): ModelClient {
+export function scriptedModel(
+  script: ScriptedTurn[],
+  opts: { delayMs?: number } = {},
+): ModelClient {
   let turn = 0
+  // A real model takes seconds per turn. Scripted turns return instantly, which
+  // makes the run finish before anyone can watch it — and leaves no window to hit
+  // Revoke mid-run, which is the demo's strongest beat. This restores the pacing.
+  const delayMs = opts.delayMs ?? 0
 
   return {
     name: 'scripted',
     async next() {
+      if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
       const step: ScriptedTurn | undefined = script[turn++]
 
       if (!step) {

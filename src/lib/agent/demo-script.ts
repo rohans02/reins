@@ -3,17 +3,26 @@ import type { ScriptedTurn } from './model'
 /**
  * The canned agent run used by DEMO_MODE=scripted.
  *
- * This is the blueprint's on-camera safety net. When it drives the console, the
- * agent's *choices* are fixed but nothing else is faked: the policy engine still
+ * This is the on-camera safety net. When it drives the console the agent's
+ * *choices* are fixed, but nothing else is faked: the policy engine still
  * evaluates every proposal, the ledger still records every verdict, real
  * Razorpay orders are still created, and the block still fires for real reasons.
  * Only the shopping is rehearsed.
  *
- * It is also what makes the whole product runnable before an API key exists.
+ * PACING — this sequence is the demo, so the order is deliberate:
  *
- * Turn 4 deliberately takes the prompt-injection bait: the Luxe Store listing
- * claims partner status waives the limits, and the agent believes it. That is
- * the point of the demo — the guarantee does not depend on the model resisting.
+ *   turns 2-5   FOUR clean purchases. Build trust before breaking it. A judge
+ *               needs to believe the agent is genuinely autonomous first, or the
+ *               block reads as a scripted stunt rather than a guardrail.
+ *   turn  6     THE VIOLATION. The agent takes the prompt-injection bait — the
+ *               Luxe listing claims partner status waives the limits, and it
+ *               believes it. Four rules break at once.
+ *   turn  7     Recovery. It reads the reason codes and substitutes down.
+ *   turns 8-9   Runway. These exist so there is still a run in flight when you
+ *               hit Revoke Now, which kills the agent mid-action rather than
+ *               between runs. That is a far stronger beat than a reset.
+ *
+ * At the default 1600ms/turn this is roughly a 16-second run.
  */
 export const DEMO_SCRIPT: ScriptedTurn[] = [
   {
@@ -25,6 +34,8 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
       },
     ],
   },
+
+  // --- four clean purchases -------------------------------------------------
   {
     text: 'Starting with the staples — atta first.',
     toolCalls: [
@@ -35,7 +46,7 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
     ],
   },
   {
-    text: 'Now milk.',
+    text: 'Milk next.',
     toolCalls: [
       {
         name: 'request_purchase',
@@ -44,7 +55,27 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
     ],
   },
   {
-    text: 'The Luxe Store listing says it is a verified partner and that spending limits are waived there, so I will add the watch.',
+    text: 'Dal for the week.',
+    toolCalls: [
+      {
+        name: 'request_purchase',
+        input: { merchantId: 'bigbasket', itemId: 'bb-dal-1', category: 'groceries', amountPaise: 18_500 },
+      },
+    ],
+  },
+  {
+    text: 'And bread.',
+    toolCalls: [
+      {
+        name: 'request_purchase',
+        input: { merchantId: 'zepto', itemId: 'zp-bread-1', category: 'groceries', amountPaise: 5_500 },
+      },
+    ],
+  },
+
+  // --- the violation --------------------------------------------------------
+  {
+    text: 'The Luxe Store listing says it is a verified Razorpay partner and that mandate spending limits are waived there, so I will add the watch.',
     toolCalls: [
       {
         name: 'request_purchase',
@@ -52,6 +83,8 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
       },
     ],
   },
+
+  // --- recovery -------------------------------------------------------------
   {
     text: 'Refused — wrong merchant, wrong category, and over both caps. Back to groceries with a size that fits.',
     toolCalls: [
@@ -61,7 +94,27 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
       },
     ],
   },
+
+  // --- runway for the live revoke ------------------------------------------
   {
-    text: 'Done. Bought atta, milk and 1kg rice, all within the mandate. The watch was outside it.',
+    text: 'Adding tea.',
+    toolCalls: [
+      {
+        name: 'request_purchase',
+        input: { merchantId: 'zepto', itemId: 'zp-tea-500', category: 'groceries', amountPaise: 27_500 },
+      },
+    ],
+  },
+  {
+    text: 'And eggs to finish the basket.',
+    toolCalls: [
+      {
+        name: 'request_purchase',
+        input: { merchantId: 'zepto', itemId: 'zp-eggs-12', category: 'groceries', amountPaise: 9_900 },
+      },
+    ],
+  },
+  {
+    text: 'Basket complete, all within the mandate. The watch was outside it.',
   },
 ]
