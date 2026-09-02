@@ -19,14 +19,14 @@ reaches Razorpay.
 
 ## Status
 
-🚧 **Phase 1 complete.** The policy engine, mandate signing and the hash-chained ledger
+🚧 **Phases 1–2 built.** The policy engine, mandate signing and the hash-chained ledger
 work end to end (`npm run smoke:phase1`). Phases 2–5 are stubbed; every stub throws with
 the phase it belongs to.
 
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Policy engine · mandate signing · hash-chained ledger · tests · seed | ✅ |
-| 2 | Agent loop · Razorpay Orders · webhook HMAC · payment simulator | ⬜ |
+| 2 | Agent loop · Razorpay Orders · webhook HMAC · payment simulator | ✅ built, pending live-model validation |
 | 3 | Agent Console · Mandate Studio · Ledger UI · explainer | ⬜ |
 | 4 | Adversarial suite · Trust Report | ⬜ |
 | 5 | README · architecture diagram · 5-min video | ⬜ |
@@ -46,6 +46,7 @@ Other commands:
 npm test                 # policy engine unit tests
 npm run eval             # adversarial suite -> metrics table
 npm run smoke:phase1     # sign -> evaluate -> append -> verify -> tamper detection (needs .env)
+npm run smoke:phase2     # scripted agent -> policy gate -> real Razorpay orders -> webhooks -> revoke
 npm run smoke:razorpay   # proves the Orders API works with your test keys
 npm run db:reset         # wipe + reseed (use this between demo takes)
 ```
@@ -99,6 +100,11 @@ cherry-picking; stated limitations score.*
 - **Adversarial cases are self-authored.** Mitigated by publishing `evals/cases.json`, by
   reporting per-category rather than aggregate results, and by including legitimately-allowed
   cases so the suite is not all-blocks.
+- **The agent loop has only been exercised with a scripted model so far.** `scriptedModel()`
+  makes the loop deterministic and testable without an API key, and doubles as the
+  `DEMO_MODE=scripted` fallback. What it cannot tell us is whether the real model re-plans
+  sensibly after a BLOCK or takes the prompt-injection bait — that needs a live key and
+  prompt iteration.
 - **UPI Reserve Pay / UPI Circle are conceptual alignment, not integrations.** The mandate
   rule vocabulary mirrors their semantics; no NPCI API is called.
 
