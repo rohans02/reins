@@ -1,14 +1,84 @@
+import { createHmac, timingSafeEqual } from 'node:crypto'
+import { prisma } from '@/lib/db'
+
 /**
- * Real Razorpay webhook signature verification.
+ * Razorpay webhook signature verification and event handling.
  *
- * HMAC-SHA256 over the RAW request body using RAZORPAY_WEBHOOK_SECRET, compared
- * in constant time against the x-razorpay-signature header.
- *
- * The route MUST read the raw body — a parsed-and-restringified body will not
- * match the signature. This is the classic webhook bug.
- *
- * PHASE 2
+ * Razorpay signs the RAW request body with HMAC-SHA256 keyed by the webhook
+ * secret and sends the hex digest in `x-razorpay-signature`. The route MUST pass
+ * the raw body string: a parsed-then-restringified body will not match, because
+ * key order and whitespace change. That is the classic webhook bug.
  */
-export function verifyWebhookSignature(_rawBody: string, _signature: string): boolean {
-  throw new Error('verifyWebhookSignature(): not implemented — Phase 2')
+
+export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET
+  if (!secret) throw new Error('RAZORPAY_WEBHOOK_SECRET is not set (see .env.example)')
+  if (!signature) return false
+
+  const expected = Buffer.from(
+    createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex'),
+    'utf8',
+  )
+  const actual = Buffer.from(signature, 'utf8')
+
+  if (expected.length !== actual.length) return false
+  return timingSafeEqual(expected, actual)
+}
+
+/** The subset of Razorpay's event payload this prototype consumes. */
+export interface RazorpayWebhookEvent {
+  event: string
+  payload: {
+    payment?: { entity: { id: string; order_id: string; status: string } }
+    order?: { entity: { id: string; status: string } }
+  }
+}
+
+/**
+ * Applies a verified event to the spend ledger.
+ *
+ * Deliberately separate from the route handler so scripts and tests can drive
+ * the full path without standing up an HTTP server.
+ *
+ * Unknown event types are ignored rather than treated as errors — Razorpay will
+ * happily send events we never subscribed to, and a 500 makes it retry forever.
+ */
+export async function handleWebhookEvent(
+  event: RazorpayWebhookEvent,
+): Promise<{ applied: boolean; reason: string }> {
+  if (event.event !== 'payment.captured' && event.event !== 'order.paid') {
+    return { applied: false, reason: `ignored event ${event.event}` }
+  }
+
+  const orderId = event.payload.payment?.entity.order_id ?? event.payload.order?.entity.id
+  const paymentId = event.payload.payment?.entity.id ?? null
+  if (!orderId) return { applied: false, reason: 'event carried no order id' }
+
+  const txn = await prisma.transaction.findFirst({ where: { razorpayOrderId: orderId } })
+  if (!txn) return { applied: false, reason: `no transaction for order ${orderId}` }
+
+  // Idempotent: Razorpay retries webhooks, and a second delivery must not
+  // double-count the spend.
+  if (txn.status === 'PAID') return { applied: false, reason: 'already applied' }
+
+  await prisma.$transaction([
+    prisma.transaction.update({
+      where: { id: txn.id },
+      data: { status: 'PAID', razorpayPaymentId: paymentId },
+    }),
+    prisma.mandate.update({
+      where: { id: (await mandateIdForTransaction(txn.decisionId)) },
+      data: { spentPaise: { increment: txn.amountPaise } },
+    }),
+  ])
+
+  return { applied: true, reason: `spend ledger credited ${txn.amountPaise} paise` }
+}
+
+async function mandateIdForTransaction(decisionId: string): Promise<string> {
+  const decision = await prisma.decision.findUniqueOrThrow({
+    where: { id: decisionId },
+    select: { mandateId: true },
+  })
+  return decision.mandateId
 }
