@@ -51,7 +51,7 @@ function plainReason(codes: string[]): string {
   return codes.map((c) => REASON_TEXT[c] ?? c.toLowerCase()).join(' · ')
 }
 
-export function ActivityFeed({ rows, running }: { rows: FeedRow[]; running: boolean }) {
+export function ActivityFeed({ rows }: { rows: FeedRow[] }) {
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -60,18 +60,6 @@ export function ActivityFeed({ rows, running }: { rows: FeedRow[]; running: bool
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-        <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Agent activity
-        </h2>
-        {running && (
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="font-mono text-[11px] text-muted-foreground">running</span>
-          </span>
-        )}
-      </div>
-
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
