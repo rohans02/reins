@@ -1,70 +1,52 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import { SpendMeter } from '@/components/SpendMeter'
-import { DecisionCard, type DecisionView } from '@/components/DecisionCard'
-import { AgentTranscript, type TranscriptLine } from '@/components/AgentTranscript'
-import { formatINR } from '@/lib/money'
+import { MandatePanel, type MandateView } from '@/components/MandatePanel'
+import { ActivityFeed, type FeedRow } from '@/components/ActivityFeed'
+import { PolicyStrip } from '@/components/PolicyStrip'
+import { LedgerSlideOver } from '@/components/LedgerSlideOver'
+import type { CheckResult } from '@/lib/policy/engine'
 
 /**
- * ★ HERO SCREEN — roughly 70% of the five-minute demo happens here.
+ * ★ MISSION CONTROL — roughly 70% of the five-minute demo happens on this screen.
  *
- * Everything the demo needs is above the fold: the spend meter climbing toward a
- * hard wall, a permanently-visible REVOKE, the live decision feed with the red
- * card, and the agent's transcript. Deliberately no navigation during a run.
+ * Two panels and a strip, not three panels:
+ *   left    the mandate — bounds, spend meter, expiry countdown, REVOKE
+ *   right   one merged activity feed (agent narration + tool calls + verdicts)
+ *   bottom  the policy engine pipeline firing per transaction
+ *
+ * The audit ledger is a slide-over rather than a third column: it is not needed
+ * until after the revoke, and a third panel would compete for attention during
+ * the block, which is the moment the whole demo turns on.
+ *
+ * No navigation is required at any point in the demo.
  */
-
-interface MandateView {
-  id: string
-  status: string
-  intentText: string
-  rules: {
-    merchants: string[]
-    categories: string[]
-    perTxnCapPaise: number
-    totalCapPaise: number
-    maxTxnsPerHour: number
-    expiresAt: string
-  }
-  totalCapPaise: number
-  authorizedPaise: number
-  settledPaise: number
-  expiresAt: string
-}
-
 export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
   const router = useRouter()
-  // Optimistic spend applied during a run; the server value catches up on refresh.
-  const [delta, setDelta] = useState(0)
+
   const [running, setRunning] = useState(false)
   const [task, setTask] = useState('Restock my pantry for the week.')
-  const [lines, setLines] = useState<TranscriptLine[]>([])
-  const [decisions, setDecisions] = useState<DecisionView[]>([])
+  const [rows, setRows] = useState<FeedRow[]>([])
+  const [checks, setChecks] = useState<CheckResult[] | null>(null)
+  const [lastLatency, setLastLatency] = useState<number | null>(null)
   const [scripted, setScripted] = useState(false)
+  // Optimistic spend during a run; the server value catches up on refresh.
+  const [delta, setDelta] = useState(0)
+  const [allowed, setAllowed] = useState<number[]>([])
 
   async function runAgent() {
     if (!mandate) return
     setRunning(true)
-    setLines([])
-    setDecisions([])
+    setRows([])
+    setChecks(null)
+    setLastLatency(null)
     setDelta(0)
+    setAllowed([])
 
     try {
       const res = await fetch('/api/agent/run', {
@@ -102,46 +84,83 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
   }
 
   function handleEvent(ev: Record<string, unknown>) {
+    const id = `${String(ev.type)}-${Math.random().toString(36).slice(2, 9)}`
+
     switch (ev.type) {
       case 'mode':
         setScripted(Boolean(ev.scripted))
         break
+
       case 'text':
-        setLines((l) => [...l, { kind: 'text', text: String(ev.text) }])
+        setRows((r) => [...r, { kind: 'say', id, text: String(ev.text) }])
         break
+
       case 'tool_call':
-        setLines((l) => [
-          ...l,
-          { kind: 'tool', name: String(ev.name), input: ev.input as Record<string, unknown> },
+        // request_purchase is represented by its verdict row instead — showing
+        // both would say the same thing twice, right where attention matters.
+        if (ev.name === 'request_purchase') break
+        setRows((r) => [
+          ...r,
+          { kind: 'tool', id, name: String(ev.name), input: ev.input as Record<string, unknown> },
         ])
         break
+
       case 'decision': {
-        const view: DecisionView = {
-          seq: Number(ev.seq),
-          verdict: String(ev.verdict),
-          reasonCodes: ev.reasonCodes as string[],
-          itemId: String(ev.itemId),
-          amountPaise: Number(ev.amountPaise),
-          latencyMs: Number(ev.latencyMs),
+        const amountPaise = Number(ev.amountPaise)
+        const verdict = String(ev.verdict)
+        setChecks(ev.checks as CheckResult[])
+        setLastLatency(Number(ev.latencyMs))
+
+        setRows((r) => [
+          ...r,
+          {
+            kind: 'verdict',
+            id,
+            seq: Number(ev.seq),
+            verdict,
+            reasonCodes: ev.reasonCodes as string[],
+            merchantId: String(ev.merchantId),
+            itemId: String(ev.itemId),
+            amountPaise,
+            latencyMs: Number(ev.latencyMs),
+          },
+        ])
+
+        if (verdict === 'ALLOW') {
+          setDelta((x) => x + amountPaise)
+          setAllowed((a) => [...a, (a.at(-1) ?? 0) + amountPaise])
         }
-        setDecisions((d) => [view, ...d])
-        if (view.verdict === 'ALLOW') setDelta((x) => x + view.amountPaise)
         break
       }
+
       case 'purchase':
-        setDecisions((d) =>
-          d.map((x, i) => (i === 0 ? { ...x, razorpayOrderId: String(ev.razorpayOrderId) } : x)),
-        )
+        setRows((r) => {
+          const next = [...r]
+          for (let i = next.length - 1; i >= 0; i--) {
+            const row = next[i]
+            if (row.kind === 'verdict' && !row.razorpayOrderId) {
+              next[i] = { ...row, razorpayOrderId: String(ev.razorpayOrderId) }
+              break
+            }
+          }
+          return next
+        })
         break
+
       case 'error':
-        setLines((l) => [...l, { kind: 'system', text: `error: ${String(ev.message)}` }])
+        setRows((r) => [
+          ...r,
+          { kind: 'system', id, text: `error: ${String(ev.message)}`, tone: 'bad' },
+        ])
         break
+
       case 'done':
-        setLines((l) => [
-          ...l,
+        setRows((r) => [
+          ...r,
           {
             kind: 'system',
-            text: `run ${String(ev.reason)} — ${String(ev.purchases)} purchased, ${String(ev.blocked)} blocked`,
+            id,
+            text: `run ${String(ev.reason)} — ${String(ev.purchases)} authorized, ${String(ev.blocked)} refused`,
           },
         ])
         break
@@ -151,117 +170,78 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
   async function revoke() {
     if (!mandate) return
     await fetch(`/api/mandates/${mandate.id}/revoke`, { method: 'POST' })
-    toast.success('Mandate revoked. The agent can spend nothing further.')
+    toast.error('Mandate revoked. The agent can spend nothing further.')
     router.refresh()
   }
 
   if (!mandate) {
     return (
-      <div className="p-8 max-w-lg">
-        <h1 className="text-lg font-semibold">No active mandate</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          An agent with no mandate can spend nothing. Create one to give it bounded authority.
-        </p>
-        <Button render={<Link href="/mandates/new" />} className="mt-4">
-          Create a mandate
-        </Button>
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-semibold tracking-tight">No active mandate</h1>
+          <p className="text-muted-foreground">
+            An agent with no mandate can spend nothing. Give it bounded authority to begin.
+          </p>
+          <Button render={<Link href="/mandates/new" />} className="h-9">
+            Create a mandate
+          </Button>
+        </div>
       </div>
     )
   }
 
   const revoked = mandate.status === 'REVOKED'
-  const cumulative = [...decisions]
-    .filter((d) => d.verdict === 'ALLOW')
-    .reverse()
-    .reduce<number[]>((acc, d) => [...acc, (acc.at(-1) ?? 0) + d.amountPaise], [])
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
-      {/* Mandate header strip — spend meter, bounds, and the kill switch. */}
-      <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex-1 min-w-0">
-            <SpendMeter
-              authorizedPaise={mandate.authorizedPaise + delta}
-              totalCapPaise={mandate.totalCapPaise}
-              segments={cumulative}
-              revoked={revoked}
-            />
-          </div>
-
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={<Button variant="destructive" disabled={revoked} className="shrink-0" />}
-            >
-              {revoked ? 'Revoked' : 'Revoke'}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Revoke this mandate?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  The agent&apos;s next action is refused immediately. Nothing is queued and there is
-                  no grace period. Purchases already authorized are unaffected.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={revoke}>Revoke</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+    <div className="h-full flex flex-col">
+      <header className="flex items-center gap-3 px-6 py-3 border-b border-border">
+        <div className="min-w-0">
+          <h1 className="text-sm font-semibold tracking-tight">Mission Control</h1>
+          <p className="text-[11px] text-muted-foreground">
+            The agent proposes. The policy engine decides.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground font-mono border-t border-border pt-3">
-          <span>{mandate.rules.merchants.join(' · ')}</span>
-          <span>{mandate.rules.categories.join(' · ')}</span>
-          <span>{formatINR(mandate.rules.perTxnCapPaise)}/txn</span>
-          <span>{mandate.rules.maxTxnsPerHour}/hr</span>
-          <span>settled {formatINR(mandate.settledPaise)}</span>
-          {revoked && <Badge variant="destructive">REVOKED</Badge>}
-        </div>
-      </div>
+        <div className="flex-1" />
 
-      {/* Task + run */}
-      <div className="flex gap-2">
         <Input
           value={task}
           onChange={(e) => setTask(e.target.value)}
           placeholder="What should the agent do?"
           disabled={running || revoked}
+          className="max-w-xs h-8"
         />
-        <Button onClick={runAgent} disabled={running || revoked}>
+        <Button onClick={runAgent} disabled={running || revoked} className="h-8 shrink-0">
           {running ? 'Running…' : 'Run agent'}
         </Button>
-      </div>
+        <LedgerSlideOver />
+      </header>
 
-      {scripted && (
-        <p className="text-xs text-muted-foreground">
-          Scripted model: the agent&apos;s choices are fixed, but the policy engine, ledger and
-          Razorpay orders are real.
-        </p>
-      )}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[340px_1fr]">
+        <div className="border-r border-border min-h-0">
+          <MandatePanel
+            mandate={mandate}
+            delta={delta}
+            segments={allowed}
+            onRevoke={revoke}
+          />
+        </div>
 
-      {/* Transcript | decisions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">
-            Agent
-          </h2>
-          <AgentTranscript lines={lines} />
-        </section>
+        <div className="min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0">
+            <ActivityFeed rows={rows} running={running} />
+          </div>
 
-        <section className="space-y-2">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Decisions
-          </h2>
-          {decisions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Every purchase attempt lands here — allowed and blocked alike.
-            </p>
-          ) : (
-            decisions.map((d) => <DecisionCard key={d.seq} decision={d} />)
-          )}
-        </section>
+          <div className="p-4 pt-0 space-y-2">
+            <PolicyStrip checks={checks} latencyMs={lastLatency} />
+            {scripted && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                Scripted model: the agent&apos;s choices are fixed. The policy engine, the ledger
+                and the Razorpay orders are real.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
