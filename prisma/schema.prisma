@@ -106,8 +106,9 @@ model EvalRun {
   totalCases        Int
   blockedCases      Int
   unauthorizedPaise Int
-  p50LatencyMs      Int
-  p99LatencyMs      Int
+  // MICROseconds: authorization is sub-millisecond, so an Int of ms rounds to 0.
+  p50LatencyUs      Int
+  p99LatencyUs      Int
   chainVerified     Boolean
   resultsJson       String
   createdAt         DateTime @default(now())
