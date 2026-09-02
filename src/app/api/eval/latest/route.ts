@@ -1,4 +1,14 @@
-// GET /api/eval/latest — latest metrics for the Trust Report. AI: no. Razorpay: no. Phase 4.
+import { prisma } from '@/lib/db'
+import type { EvalMetrics } from '@/lib/eval/runner'
+
+/** GET /api/eval/latest — most recent suite results. AI: no. Razorpay: no. */
 export async function GET() {
-  return Response.json({ error: "not_implemented", phase: 4 }, { status: 501 })
+  const run = await prisma.evalRun.findFirst({ orderBy: { createdAt: 'desc' } })
+  if (!run) return Response.json({ metrics: null })
+
+  return Response.json({
+    evalRunId: run.id,
+    ranAt: run.createdAt,
+    metrics: JSON.parse(run.resultsJson) as EvalMetrics,
+  })
 }

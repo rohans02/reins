@@ -1,4 +1,7 @@
-// POST /api/eval/run — run the 64-case adversarial suite. AI: no. Razorpay: no. Phase 4.
+import { runEvalSuite } from '@/lib/eval/runner'
+
+/** POST /api/eval/run — run the adversarial suite. AI: no. Razorpay: no. */
 export async function POST() {
-  return Response.json({ error: "not_implemented", phase: 4 }, { status: 501 })
+  const { evalRunId, metrics } = await runEvalSuite()
+  return Response.json({ evalRunId, metrics })
 }
