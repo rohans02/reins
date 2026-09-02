@@ -19,7 +19,7 @@ reaches Razorpay.
 
 ## Status
 
-🚧 **Phases 1–2 built.** The policy engine, mandate signing and the hash-chained ledger
+🚧 **Phases 1–3 built.** The policy engine, mandate signing and the hash-chained ledger
 work end to end (`npm run smoke:phase1`). Phases 2–5 are stubbed; every stub throws with
 the phase it belongs to.
 
@@ -27,7 +27,7 @@ the phase it belongs to.
 |---|---|---|
 | 1 | Policy engine · mandate signing · hash-chained ledger · tests · seed | ✅ |
 | 2 | Agent loop · Razorpay Orders · webhook HMAC · payment simulator | ✅ built, pending live-model validation |
-| 3 | Agent Console · Mandate Studio · Ledger UI · explainer | ⬜ |
+| 3 | Agent Console · Mandate Studio · Ledger UI · SSE streaming | ✅ (explainer deferred) |
 | 4 | Adversarial suite · Trust Report | ⬜ |
 | 5 | README · architecture diagram · 5-min video | ⬜ |
 
