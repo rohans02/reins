@@ -50,12 +50,13 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
   const visible = rows.filter((r) => filter === 'ALL' || r.verdict === filter)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="p-8 max-w-6xl mx-auto space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Audit Ledger</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Append-only and hash-chained. Every decision is here, allowed and blocked alike.
+          <h1 className="text-2xl font-semibold tracking-tight">Audit Ledger</h1>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">
+            Append-only and hash-chained. Every decision is here, allowed and refused alike — the
+            refusals are the interesting half.
           </p>
         </div>
         {(

@@ -52,11 +52,11 @@ export function TrustReport({
   const clean = metrics ? metrics.unauthorizedPaise === 0 && metrics.failed === 0 : false
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Trust Report</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Trust Report</h1>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">
             Every case runs through the real policy engine. It is a pure function, so these
             numbers are reproducible byte-for-byte on any machine.
           </p>
@@ -105,7 +105,7 @@ export function TrustReport({
 
           <section className="space-y-2">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-sm font-medium">By category</h2>
+              <h2 className="text-base font-semibold tracking-tight">By category</h2>
               <span className="text-xs text-muted-foreground">
                 {when && `last run ${new Date(when).toLocaleString()}`}
               </span>
@@ -152,7 +152,7 @@ export function TrustReport({
 
           {metrics.failed > 0 && (
             <section className="space-y-2">
-              <h2 className="text-sm font-medium text-destructive">Failures</h2>
+              <h2 className="text-base font-semibold tracking-tight text-destructive">Failures</h2>
               {metrics.results
                 .filter((r) => !r.passed)
                 .map((r) => (
@@ -173,7 +173,7 @@ export function TrustReport({
 
           <section className="rounded-lg border border-border bg-card p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-medium">Limitations</h2>
+              <h2 className="text-base font-semibold tracking-tight">Limitations</h2>
               <Badge variant="secondary" className="text-[10px]">stated, not asked for</Badge>
             </div>
             <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
