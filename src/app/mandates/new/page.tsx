@@ -42,7 +42,10 @@ function defaultRules(): Rules {
     categories: ['groceries'],
     perTxnCapPaise: 80_000,
     totalCapPaise: 300_000,
-    maxTxnsPerHour: 5,
+    // 10, not 5: the demo run makes 7 legitimate purchases and velocity is not
+    // the rule being showcased. It is still enforced, and still covered by the
+    // adversarial suite.
+    maxTxnsPerHour: 10,
     expiresAt: in7Days.toISOString(),
   }
 }
