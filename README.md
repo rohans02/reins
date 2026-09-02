@@ -5,7 +5,6 @@ real spending power on Razorpay rails: bounded by a signed mandate, enforced in 
 than in a prompt, revocable in one click, and audited to the paisa.
 
 > Razorpay AI Buildathon — Track 1 (AI Growth & Agentic Commerce)
-> Full product spec: [`../BLUEPRINT.md`](../BLUEPRINT.md)
 
 ---
 
