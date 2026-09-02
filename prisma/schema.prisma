@@ -75,13 +75,19 @@ model Decision {
   explanation         String? // LLM-written, POST-decision. Nullable by design:
   //                             if the model is down the block still happened.
   mandateSnapshotHash String // canonicalHash of the rules in force at decision time
-  idempotencyKey      String    @unique // replay protection
+  // NOT unique: the ledger must be able to RECORD a refused replay. Double-
+  // execution is prevented by the engine (DUPLICATE_REQUEST) and hard-stopped by
+  // Transaction.decisionId being unique.
+  idempotencyKey      String
   latencyMs           Int
   prevHash            String
   hash                String // sha256(prevHash + canonical(row))
   createdAt           DateTime  @default(now())
 
   transaction Transaction?
+
+  @@index([idempotencyKey])
+  @@index([mandateId])
 }
 
 model Transaction {

@@ -171,7 +171,11 @@ async function* handlePurchase(args: {
   // that is exactly what the live revoke moment in the demo depends on.
   const current = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
   const ledger = await loadLedgerState(mandateId)
-  const idempotencyKey = canonicalHash({ mandateId, action })
+  // Keyed on the REQUEST, not the action. Hashing {mandateId, action} would make
+  // a legitimate repeat purchase of the same item next week look like a replay.
+  // A genuine retry re-sends the same runId + toolUseId and is caught; buying
+  // atta again in a later run is a different request and is allowed.
+  const idempotencyKey = canonicalHash({ runId, toolUseId: use.id, action })
 
   const decision = evaluate({
     rules,
