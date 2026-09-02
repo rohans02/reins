@@ -1,4 +1,10 @@
-// GET /api/catalog — seed catalog for the UI. AI: no. Razorpay: no. Phase 3.
+import { prisma } from '@/lib/db'
+
+/** GET /api/catalog — the seed catalog for the UI. AI: no. Razorpay: no. */
 export async function GET() {
-  return Response.json({ error: "not_implemented", phase: 3 }, { status: 501 })
+  const items = await prisma.catalogItem.findMany({
+    include: { merchant: true },
+    orderBy: [{ merchantId: 'asc' }, { pricePaise: 'asc' }],
+  })
+  return Response.json({ items })
 }
