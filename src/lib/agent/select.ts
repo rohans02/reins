@@ -1,5 +1,5 @@
 import { anthropicModel, scriptedModel, type ModelClient } from './model'
-import { geminiModel } from './gemini'
+import { geminiConfigured, geminiModel } from './gemini'
 import { DEMO_SCRIPT } from './demo-script'
 
 /**
@@ -25,9 +25,9 @@ function anthropicKey(): boolean {
   return Boolean(key && key.startsWith('sk-ant-') && key.length > 24 && !key.includes('...'))
 }
 
+// Either an AI Studio API key or a Vertex AI project counts as configured.
 function geminiKey(): boolean {
-  const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
-  return Boolean(key && key.length > 20 && !key.includes('...'))
+  return geminiConfigured()
 }
 
 export type Provider = 'scripted' | 'gemini' | 'anthropic'

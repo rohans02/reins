@@ -19,12 +19,53 @@ import type { ModelClient, ToolUse } from './model'
 /** Free-tier friendly. Override with GEMINI_MODEL if a newer flash model exists. */
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
 
+/**
+ * Two ways to reach Gemini, and they are different products:
+ *
+ *   AI Studio  — an API key from aistudio.google.com. Has a genuinely free tier.
+ *   Vertex AI  — a GCP project plus Application Default Credentials
+ *                (`gcloud auth application-default login`). Billed to the project.
+ *
+ * Whichever is configured wins; the API key is preferred when both are, because
+ * it is the free one.
+ */
+export function geminiApiKey(): string | undefined {
+  const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
+  return key && key.length > 20 && !key.includes('...') ? key : undefined
+}
+
+export function geminiVertexProject(): string | undefined {
+  const project = process.env.GOOGLE_CLOUD_PROJECT
+  return project && project.length > 0 ? project : undefined
+}
+
+export function geminiConfigured(): boolean {
+  return Boolean(geminiApiKey() ?? geminiVertexProject())
+}
+
 export function geminiModel(): ModelClient {
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not set (see .env.example)')
+  const apiKey = geminiApiKey()
+  const project = geminiVertexProject()
+
+  if (!apiKey && !project) {
+    throw new Error(
+      'Gemini is not configured. Set GEMINI_API_KEY (free tier, aistudio.google.com/apikey) ' +
+        'or GOOGLE_CLOUD_PROJECT with `gcloud auth application-default login` for Vertex AI.',
+    )
+  }
 
   const model = process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL
-  const ai = new GoogleGenAI({ apiKey })
+
+  const ai = apiKey
+    ? new GoogleGenAI({ apiKey })
+    : new GoogleGenAI({
+        vertexai: true,
+        project,
+        // Gemini model availability varies by region. `global` routes to
+        // wherever the model is served, which is what you want unless there is
+        // a data-residency reason to pin a region.
+        location: process.env.GOOGLE_CLOUD_LOCATION ?? 'global',
+      })
 
   return {
     name: model,

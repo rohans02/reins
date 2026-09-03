@@ -7,7 +7,14 @@ import { selectProvider } from './select'
  * product rather than an unconfigured one — that exact bug shipped once already.
  */
 
-const KEYS = ['DEMO_MODE', 'AGENT_PROVIDER', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'ANTHROPIC_API_KEY']
+const KEYS = [
+  'DEMO_MODE',
+  'AGENT_PROVIDER',
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_CLOUD_PROJECT',
+  'ANTHROPIC_API_KEY',
+]
 const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]))
 
 function setEnv(env: Record<string, string | undefined>) {
@@ -48,6 +55,11 @@ describe('provider selection', () => {
 
   it('accepts GOOGLE_API_KEY as an alias', () => {
     setEnv({ GOOGLE_API_KEY: REAL_GEMINI })
+    expect(selectProvider()).toBe('gemini')
+  })
+
+  it('counts a Vertex AI project as configured, with no API key', () => {
+    setEnv({ GOOGLE_CLOUD_PROJECT: 'project-c85c3b79-90c4-4850-8db' })
     expect(selectProvider()).toBe('gemini')
   })
 
