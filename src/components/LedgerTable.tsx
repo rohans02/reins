@@ -55,20 +55,18 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Audit Ledger</h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">
-            Append-only and hash-chained. Every decision is here, allowed and refused alike — the
-            refusals are the interesting half.
+            Append-only and hash-chained. Every decision is here. The refusals matter as much as the
+            approvals.
           </p>
         </div>
-        {(
-          <Badge
+        <Badge
             variant={chain.verified ? 'secondary' : 'destructive'}
             className="font-mono text-xs shrink-0"
           >
             {chain.verified
               ? `chain verified · ${chain.entriesChecked} entries`
               : `CHAIN BROKEN at #${chain.brokenAtSeq}`}
-          </Badge>
-        )}
+        </Badge>
       </header>
 
       <div className="flex items-center gap-2">
@@ -93,28 +91,29 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
           Nothing recorded yet. Run the agent and every verdict will appear here.
         </p>
       ) : (
-        <div className="rounded-lg border border-border overflow-x-auto">
-          <Table>
+        // `table-fixed` so the Detail column absorbs the slack and every other
+        // column keeps its width. Reason codes then wrap inside the cell rather
+        // than stretching one row until the Amount column slides off screen.
+        <div className="rounded-lg border border-border">
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-14">#</TableHead>
-                <TableHead className="w-40">Time</TableHead>
-                <TableHead className="w-36">Action</TableHead>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead className="w-24">Time</TableHead>
                 <TableHead className="w-20">Verdict</TableHead>
                 <TableHead>Detail</TableHead>
-                <TableHead className="w-24 text-right">Amount</TableHead>
+                <TableHead className="w-28 text-right">Amount</TableHead>
                 <TableHead className="w-20 text-right">Latency</TableHead>
-                <TableHead className="w-24">Hash</TableHead>
+                <TableHead className="w-20">Hash</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visible.map((r) => (
-                <TableRow key={r.seq}>
+                <TableRow key={r.seq} className="align-top">
                   <TableCell className="font-mono text-xs tabular-nums">{r.seq}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {new Date(r.createdAt).toLocaleTimeString()}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{r.action}</TableCell>
                   <TableCell>
                     <span
                       className={cn(
@@ -125,26 +124,39 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
                       {r.verdict}
                     </span>
                   </TableCell>
+
                   <TableCell className="text-xs">
-                    <span className="font-mono">{r.requestedAction.itemId ?? '—'}</span>
+                    <div className="font-mono truncate">
+                      {r.requestedAction.itemId ?? r.action.toLowerCase().replaceAll('_', ' ')}
+                    </div>
+
                     {r.reasonCodes.length > 0 && (
-                      <span className="ml-2 font-mono text-[10px] text-destructive">
-                        {r.reasonCodes.join(' ')}
-                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {r.reasonCodes.map((code) => (
+                          <span
+                            key={code}
+                            className="rounded bg-destructive/15 px-1.5 py-0.5 font-mono text-[10px] leading-tight text-destructive"
+                          >
+                            {code}
+                          </span>
+                        ))}
+                      </div>
                     )}
+
                     {r.razorpayOrderId && (
-                      <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                      <div className="mt-1 font-mono text-[10px] text-muted-foreground truncate">
                         {r.razorpayOrderId}
-                      </span>
+                      </div>
                     )}
                   </TableCell>
+
                   <TableCell className="text-right font-mono text-xs tabular-nums">
                     {r.requestedAction.amountPaise ? formatINR(r.requestedAction.amountPaise) : '—'}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                     {r.latencyUs}µs
                   </TableCell>
-                  <TableCell className="font-mono text-[10px] text-muted-foreground">
+                  <TableCell className="font-mono text-[10px] text-muted-foreground truncate">
                     {r.hash.slice(0, 8)}
                   </TableCell>
                 </TableRow>
