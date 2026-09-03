@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenAI } from '@google/genai'
 import { MANDATE_DRAFTER_SYSTEM_PROMPT } from '@/lib/agent/prompts'
 import { selectProvider } from '@/lib/agent/select'
-import { DEFAULT_GEMINI_MODEL, geminiApiKey, geminiVertexProject } from '@/lib/agent/gemini'
+import { geminiApiKey, geminiLocation, geminiModelId, geminiVertexProject } from '@/lib/agent/gemini'
 import { prisma } from '@/lib/db'
 
 /**
@@ -79,11 +79,11 @@ async function draftWithGemini(userPrompt: string): Promise<string> {
     : new GoogleGenAI({
         vertexai: true,
         project: geminiVertexProject(),
-        location: process.env.GOOGLE_CLOUD_LOCATION ?? 'global',
+        location: geminiLocation(),
       })
 
   const res = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+    model: geminiModelId(),
     contents: userPrompt,
     config: {
       systemInstruction: MANDATE_DRAFTER_SYSTEM_PROMPT,

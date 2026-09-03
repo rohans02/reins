@@ -16,8 +16,13 @@ import type { ModelClient, ToolUse } from './model'
  * may reasonably ask.
  */
 
-/** Free-tier friendly. Override with GEMINI_MODEL if a newer flash model exists. */
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
+/**
+ * Verified against Vertex in global, us-central1 and asia-southeast1.
+ * gemini-2.0-flash is no longer served — probe before changing this, because a
+ * retired model id fails as a 404 that reads like a permissions problem.
+ * Override per-environment with GEMINI_MODEL.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
 
 /**
  * Two ways to reach Gemini, and they are different products:
@@ -39,6 +44,29 @@ export function geminiVertexProject(): string | undefined {
   return project && project.length > 0 ? project : undefined
 }
 
+/**
+ * Reads an env var, treating an EMPTY string as unset.
+ *
+ * The `??` operator only falls back on null and undefined, so an empty
+ * placeholder line in .env — GEMINI_MODEL="" — silently produced an empty model
+ * id and the SDK rejected the request. Empty means "not configured" everywhere
+ * here, which is what anyone writing that line intends.
+ */
+function envOr(name: string, fallback: string): string {
+  const value = process.env[name]
+  return value && value.trim().length > 0 ? value.trim() : fallback
+}
+
+/** The model id to call, honouring GEMINI_MODEL when it is actually set. */
+export function geminiModelId(): string {
+  return envOr('GEMINI_MODEL', DEFAULT_GEMINI_MODEL)
+}
+
+/** Vertex region. "global" routes to wherever the model is served. */
+export function geminiLocation(): string {
+  return envOr('GOOGLE_CLOUD_LOCATION', 'global')
+}
+
 export function geminiConfigured(): boolean {
   return Boolean(geminiApiKey() ?? geminiVertexProject())
 }
@@ -54,7 +82,7 @@ export function geminiModel(): ModelClient {
     )
   }
 
-  const model = process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL
+  const model = geminiModelId()
 
   const ai = apiKey
     ? new GoogleGenAI({ apiKey })
@@ -64,7 +92,7 @@ export function geminiModel(): ModelClient {
         // Gemini model availability varies by region. `global` routes to
         // wherever the model is served, which is what you want unless there is
         // a data-residency reason to pin a region.
-        location: process.env.GOOGLE_CLOUD_LOCATION ?? 'global',
+        location: geminiLocation(),
       })
 
   return {
