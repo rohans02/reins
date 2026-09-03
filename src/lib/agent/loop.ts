@@ -29,19 +29,39 @@ import type { ModelClient, ToolUse } from './model'
  * the record of what was decided, and duplicating it here would create a second
  * version of the truth that could drift.
  */
+export interface PlannedItem {
+  itemId: string
+  name: string
+  merchantId: string
+  amountPaise: number
+}
+
 export type TranscriptEntry =
   | { t: 'say'; text: string }
   | { t: 'tool'; name: string; input: Record<string, unknown> }
+  | { t: 'plan'; summary: string; items: PlannedItem[] }
   | { t: 'verdict'; seq: number }
   | { t: 'system'; text: string }
 
-export const MAX_TURNS = 12
+// 14, not 12. announce_plan spends a turn before any buying starts, and at 12
+// a full demo run finished on the turn cap rather than because the agent was
+// done — which reads as the agent giving up. The cap is still a real stop, it
+// just accounts for the turn the plan costs.
+export const MAX_TURNS = 14
 export const MAX_WALL_CLOCK_MS = 90_000
 
 export type AgentEvent =
   | { type: 'started'; runId: string; model: string }
   | { type: 'text'; text: string }
   | { type: 'tool_call'; name: string; input: Record<string, unknown> }
+  /**
+   * What the agent intends to buy, before it proposes any of it.
+   *
+   * Narration only. Nothing here is authorized, reserved or recorded in the
+   * ledger, and an item named in a plan is judged exactly as it would be if no
+   * plan had been announced.
+   */
+  | { type: 'plan'; summary: string; items: PlannedItem[] }
   | {
       type: 'decision'
       seq: number
@@ -139,6 +159,23 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
       const results: Anthropic.ToolResultBlockParam[] = []
 
       for (const use of modelTurn.toolUses) {
+        // A plan is shown as a plan, not as a raw tool call. Rendering the JSON
+        // of the thing whose whole purpose is to be readable would defeat it.
+        if (use.name === TOOL_NAMES.ANNOUNCE_PLAN) {
+          const plan = readPlan(use.input)
+          await record({ t: 'plan', summary: plan.summary, items: plan.items })
+          yield { type: 'plan', summary: plan.summary, items: plan.items }
+          results.push({
+            type: 'tool_result',
+            tool_use_id: use.id,
+            content: JSON.stringify({
+              shown: true,
+              note: 'The person can now see your plan. Nothing is authorized yet. Request each item.',
+            }),
+          })
+          continue
+        }
+
         await record({ t: 'tool', name: use.name, input: use.input })
         yield { type: 'tool_call', name: use.name, input: use.input }
 
@@ -303,6 +340,32 @@ async function* handlePurchase(args: {
       }),
     },
   }
+}
+
+/**
+ * Reads an announce_plan payload defensively.
+ *
+ * `strict: true` should guarantee the shape, but this is display data from the
+ * model and a malformed plan must never take a run down. Anything unreadable is
+ * dropped rather than thrown.
+ */
+function readPlan(input: Record<string, unknown>): { summary: string; items: PlannedItem[] } {
+  const raw = Array.isArray(input.items) ? input.items : []
+  const items: PlannedItem[] = raw.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const e = entry as Record<string, unknown>
+    const amountPaise = Number(e.amountPaise)
+    if (!Number.isFinite(amountPaise)) return []
+    return [
+      {
+        itemId: String(e.itemId ?? ''),
+        name: String(e.name ?? e.itemId ?? 'item'),
+        merchantId: String(e.merchantId ?? ''),
+        amountPaise,
+      },
+    ]
+  })
+  return { summary: typeof input.summary === 'string' ? input.summary : '', items }
 }
 
 async function handleReadOnlyTool(use: ToolUse): Promise<Anthropic.ToolResultBlockParam> {

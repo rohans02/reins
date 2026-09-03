@@ -90,6 +90,9 @@ export default async function ConsolePage({
           if (entry.t === 'tool') {
             return [{ kind: 'tool', id: `t-${i}`, name: entry.name, input: entry.input }]
           }
+          if (entry.t === 'plan') {
+            return [{ kind: 'plan', id: `t-${i}`, summary: entry.summary, items: entry.items }]
+          }
           const row = verdictBySeq.get(entry.seq)
           return row ? [row] : []
         })

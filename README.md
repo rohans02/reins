@@ -102,7 +102,7 @@ Browser (Next.js App Router)
    |  POST /api/agent/run            ^  SSE: text, tool calls, verdicts
    v                                 |
 Next.js server
-   BUYER AGENT (claude-opus-5, 3 tools, no credentials)
+   BUYER AGENT (4 tools, only 1 leads to money, no credentials)
         | proposes
         v
    POLICY ENGINE  -- pure TS, no LLM, no I/O, not routable
@@ -135,7 +135,8 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 - Signed mandates, several live at once, each an independent budget
 - The nine-check policy engine, with 29 unit tests
 - Append-only SHA-256 hash-chained audit ledger with live verification
-- A buyer agent with three tools and no credentials
+- A buyer agent with four tools and no credentials, only one of which can reach money
+- The agent states the basket and the total before it proposes a single rupee
 - Real Razorpay test-mode orders, with ids that appear in the dashboard
 - Webhook HMAC verification
 - Revocation that takes effect on the agent's very next action, including mid-run

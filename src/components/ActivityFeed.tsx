@@ -16,9 +16,17 @@ import { cn } from '@/lib/utils'
  * system working exactly as designed. The entrance is confident, not panicked.
  */
 
+export interface PlannedItem {
+  itemId: string
+  name: string
+  merchantId: string
+  amountPaise: number
+}
+
 export type FeedRow =
   | { kind: 'say'; id: string; text: string }
   | { kind: 'tool'; id: string; name: string; input: Record<string, unknown> }
+  | { kind: 'plan'; id: string; summary: string; items: PlannedItem[] }
   | {
       kind: 'verdict'
       id: string
@@ -157,6 +165,48 @@ function Row({ row }: { row: FeedRow }) {
           {row.name}
           {`(${JSON.stringify(shown)})`}
         </div>
+      </div>
+    )
+  }
+
+  if (row.kind === 'plan') {
+    const total = row.items.reduce((sum, i) => sum + i.amountPaise, 0)
+    return (
+      <div className="mg-enter rounded-lg border border-border border-l-[3px] border-l-foreground/30 bg-card p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Planning to buy
+          </span>
+          <span className="font-mono text-sm font-semibold tabular-nums shrink-0">
+            {formatINR(total)}
+          </span>
+        </div>
+
+        {row.summary && <p className="text-sm leading-relaxed">{row.summary}</p>}
+
+        <ul className="space-y-1">
+          {row.items.map((item, i) => (
+            <li
+              key={`${item.itemId}-${i}`}
+              className="flex items-baseline justify-between gap-3 text-xs"
+            >
+              <span className="min-w-0 truncate">
+                {item.name}
+                <span className="text-muted-foreground"> from {item.merchantId}</span>
+              </span>
+              <span className="font-mono tabular-nums text-muted-foreground shrink-0">
+                {formatINR(item.amountPaise)}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {/* Said plainly, because a plan that looked like an approved basket
+            would misrepresent what the engine has actually agreed to: nothing,
+            yet. Every line above is still judged one at a time. */}
+        <p className="text-[11px] text-muted-foreground">
+          Nothing is authorized yet. Each item goes to the policy engine on its own.
+        </p>
       </div>
     )
   }

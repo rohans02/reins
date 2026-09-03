@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MandatePanel, type MandateView } from '@/components/MandatePanel'
-import { ActivityFeed, type FeedRow } from '@/components/ActivityFeed'
+import { ActivityFeed, type FeedRow, type PlannedItem } from '@/components/ActivityFeed'
 import { LedgerSlideOver } from '@/components/LedgerSlideOver'
 import { MandateSwitcher, type SwitchableMandate } from '@/components/MandateSwitcher'
 
@@ -95,6 +95,18 @@ export function ConsoleClient({
 
       case 'text':
         setLiveRows((r) => [...r, { kind: 'say', id, text: String(ev.text) }])
+        break
+
+      case 'plan':
+        setLiveRows((r) => [
+          ...r,
+          {
+            kind: 'plan',
+            id,
+            summary: String(ev.summary ?? ''),
+            items: (ev.items ?? []) as PlannedItem[],
+          },
+        ])
         break
 
       case 'tool_call':

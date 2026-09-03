@@ -47,7 +47,7 @@ convince the model of anything it likes, and it still cannot move a rupee.
 │   │  BUYER AGENT       │──────────────▶│  POLICY ENGINE             │  │
 │   │  gemini / claude   │               │  pure TS · no LLM · no I/O │  │
 │   │  hand-written loop │◀──────────────│  9 checks, never short-    │  │
-│   │  3 tools only      │  ALLOW/BLOCK  │  circuits                  │  │
+│   │  4 tools only      │  ALLOW/BLOCK  │  circuits                  │  │
 │   │  no credentials    │               └──────────┬─────────────────┘  │
 │   └─────────┬──────────┘                          │ ALLOW only         │
 │             │ search_catalog / get_item           ▼                    │
@@ -234,6 +234,26 @@ The audit ledger stays a SINGLE hash chain across all mandates. A per-mandate
 chain could omit a decision and still verify, which would defeat the point of
 having one, so mandate is a filter over one sequence and never a sequence of its
 own.
+
+### The agent says what it intends to buy before it proposes anything
+
+`announce_plan` is a fourth tool that writes nothing, authorizes nothing and
+never reaches the engine. It exists so a person sees the basket and its total up
+front instead of watching purchases arrive one at a time with no idea where the
+run is heading.
+
+It is deliberately NOT an approval step. The product's whole claim is that the
+agent can spend unattended because the mandate already bounded it, and a
+per-basket confirmation would quietly concede that the mandate is not enough. So
+the plan is a statement of intent that binds nothing: every item still goes to
+the engine on its own, and an item named in a plan is refused exactly as it
+would be if no plan had been announced. The card says so in as many words, so it
+cannot be mistaken for an approved basket.
+
+It also makes the refusal land harder. Under `FORCE_ATTEMPT` the compromised
+agent announces the Titan Edge Watch in its plan, and the engine then refuses it
+with all four reason codes. The judge watches the theft being declared before
+watching it fail.
 
 ### The agent has its own guardrails, separate from the money
 

@@ -12,6 +12,25 @@ import { AGENT_TOOLS, TOOL_NAMES } from './tools'
 describe('gemini schema translation', () => {
   const searchTool = AGENT_TOOLS.find((t) => t.name === TOOL_NAMES.SEARCH_CATALOG)!
   const purchaseTool = AGENT_TOOLS.find((t) => t.name === TOOL_NAMES.REQUEST_PURCHASE)!
+  const planTool = AGENT_TOOLS.find((t) => t.name === TOOL_NAMES.ANNOUNCE_PLAN)!
+
+  // announce_plan is the only tool with a nested object schema, and translation
+  // that stops at the top level leaves the nested half unconverted. Gemini then
+  // rejects the whole tool at call time, which surfaces as a run that dies
+  // rather than as anything pointing at the schema.
+  it('converts nested array-of-object schemas all the way down', () => {
+    const schema = toGeminiSchema(planTool.input_schema) as {
+      properties: {
+        items: { type: string; items: { type: string; properties: Record<string, { type: string }>; required: string[] } }
+      }
+    }
+    const item = schema.properties.items.items
+    expect(schema.properties.items.type).toBe('array')
+    expect(item.type).toBe('object')
+    expect(item.properties.amountPaise.type).toBe('integer')
+    expect(item.properties.merchantId.type).toBe('string')
+    expect(item.required.sort()).toEqual(['amountPaise', 'itemId', 'merchantId', 'name'])
+  })
 
   it('collapses nullable union types to a plain type', () => {
     const schema = toGeminiSchema(searchTool.input_schema) as {

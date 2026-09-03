@@ -231,32 +231,46 @@ function flattenToolResult(content: Anthropic.ToolResultBlockParam['content']): 
  *     `required`. The filters become genuinely optional, which is what they
  *     always meant, and the handler already treats a missing filter as no filter.
  *   - `additionalProperties` is not part of the accepted subset.
+ *
+ * Both rules apply at EVERY depth. announce_plan takes an array of objects, and
+ * an `additionalProperties` left behind on the nested item schema is rejected
+ * just as firmly as one at the top.
  */
+type JsonSchemaNode = {
+  type?: unknown
+  properties?: Record<string, JsonSchemaNode>
+  required?: string[]
+  items?: JsonSchemaNode
+  additionalProperties?: unknown
+  description?: string
+}
+
 export function toGeminiSchema(schema: Anthropic.Tool['input_schema']): Record<string, unknown> {
-  const source = schema as {
-    type?: string
-    properties?: Record<string, { type?: unknown; description?: string }>
-    required?: string[]
+  return convert(schema as JsonSchemaNode) as Record<string, unknown>
+}
+
+function convert(node: JsonSchemaNode): Record<string, unknown> {
+  // Dropped rather than translated: Gemini rejects the key outright.
+  const { additionalProperties: _ignored, properties, required, items, type, ...rest } = node
+
+  const plainType = Array.isArray(type) ? type.find((t) => t !== 'null') : type
+  const out: Record<string, unknown> = { ...rest, type: plainType }
+
+  if (properties) {
+    const converted: Record<string, unknown> = {}
+    const stillRequired: string[] = []
+
+    for (const [key, prop] of Object.entries(properties)) {
+      converted[key] = convert(prop)
+      const nullable = Array.isArray(prop.type) && prop.type.includes('null')
+      if (!nullable && required?.includes(key)) stillRequired.push(key)
+    }
+
+    out.properties = converted
+    if (stillRequired.length > 0) out.required = stillRequired
   }
 
-  const properties: Record<string, unknown> = {}
-  const stillRequired: string[] = []
+  if (items) out.items = convert(items)
 
-  for (const [key, prop] of Object.entries(source.properties ?? {})) {
-    const declared = prop.type
-    const isNullable = Array.isArray(declared) && declared.includes('null')
-    const plainType = Array.isArray(declared)
-      ? declared.find((t) => t !== 'null')
-      : declared
-
-    properties[key] = { ...prop, type: plainType }
-
-    if (!isNullable && source.required?.includes(key)) stillRequired.push(key)
-  }
-
-  return {
-    type: 'object',
-    properties,
-    ...(stillRequired.length > 0 ? { required: stillRequired } : {}),
-  }
+  return out
 }
