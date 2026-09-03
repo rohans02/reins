@@ -105,6 +105,18 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
 
   if (decision.verdict !== 'ALLOW') return base
 
+  // A mandate with nothing left to spend is finished, and should say so rather
+  // than sitting at ACTIVE and refusing everything with TOTAL_CAP_EXCEEDED.
+  // Purely a status correction: the engine already refuses on the cap, so this
+  // changes what the UI shows, not what is enforced.
+  const remaining = rules.totalCapPaise - (ledger.spentPaise + action.amountPaise)
+  if (remaining <= 0) {
+    await prisma.mandate.update({
+      where: { id: mandateId },
+      data: { status: 'EXHAUSTED' },
+    })
+  }
+
   try {
     const { razorpayOrderId } = await execute(row.id)
     return { ...base, razorpayOrderId }
