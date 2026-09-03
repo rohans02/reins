@@ -1,10 +1,9 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@/lib/db'
 import { canonicalHash } from '@/lib/mandate/canonical'
-import { MandateRulesSchema, type MandateRules, type MandateStatus } from '@/lib/mandate/schema'
-import { evaluate, type LedgerState } from '@/lib/policy/engine'
+import { MandateRulesSchema, type ProposedAction } from '@/lib/mandate/schema'
 import { append } from '@/lib/ledger/append'
-import { executePayment } from '@/lib/razorpay/execute'
+import { authorizeAndExecute, loadLedgerState } from '@/lib/authorize'
 import { AGENT_TOOLS, TOOL_NAMES } from './tools'
 import { buyerAgentSystemPrompt, wrapUntrusted, type PastPurchase } from './prompts'
 import type { CheckResult } from '@/lib/policy/engine'
@@ -65,7 +64,6 @@ export interface RunAgentOptions {
 export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEvent> {
   const { mandateId, task, model } = opts
   const now = opts.now ?? (() => new Date())
-  const execute = opts.executePurchase ?? executePayment
 
   const mandate = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
   const rules = MandateRulesSchema.parse(JSON.parse(mandate.rules))
@@ -117,7 +115,13 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         yield { type: 'tool_call', name: use.name, input: use.input }
 
         if (use.name === TOOL_NAMES.REQUEST_PURCHASE) {
-          const outcome = yield* handlePurchase({ use, mandateId, rules, runId: run.id, now, execute })
+          const outcome = yield* handlePurchase({
+            use,
+            mandateId,
+            runId: run.id,
+            now,
+            execute: opts.executePurchase,
+          })
           results.push(outcome.result)
           if (outcome.authorized) purchases++
           else blocked++
@@ -160,69 +164,59 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Adapts one `request_purchase` tool call onto the shared authorization path.
+ *
+ * Everything that decides anything lives in `authorizeAndExecute`. This function
+ * only translates: tool input in, UI events and a tool result out. Keeping the
+ * decision logic out of here is what lets a second caller — an MCP server, say —
+ * reuse the identical path instead of reimplementing it.
+ */
 async function* handlePurchase(args: {
   use: ToolUse
   mandateId: string
-  rules: MandateRules
   runId: string
   now: () => Date
-  execute: (decisionId: string) => Promise<{ razorpayOrderId: string }>
+  execute?: (decisionId: string) => Promise<{ razorpayOrderId: string }>
 }): AsyncGenerator<AgentEvent, { result: Anthropic.ToolResultBlockParam; authorized: boolean }> {
-  const { use, mandateId, rules, runId, now, execute } = args
+  const { use, mandateId, runId, now, execute } = args
 
-  const action = {
+  const action: ProposedAction = {
     merchantId: String(use.input.merchantId),
     itemId: String(use.input.itemId),
     category: String(use.input.category),
     amountPaise: Number(use.input.amountPaise),
   }
 
-  // Re-read the mandate on EVERY request. Revocation has to take effect on the
-  // agent's very next action, so status must never be cached across turns —
-  // that is exactly what the live revoke moment in the demo depends on.
-  const current = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
-  const ledger = await loadLedgerState(mandateId)
-  // Keyed on the REQUEST, not the action. Hashing {mandateId, action} would make
-  // a legitimate repeat purchase of the same item next week look like a replay.
-  // A genuine retry re-sends the same runId + toolUseId and is caught; buying
-  // atta again in a later run is a different request and is allowed.
-  const idempotencyKey = canonicalHash({ runId, toolUseId: use.id, action })
-
-  const decision = evaluate({
-    rules,
-    signature: current.signature,
-    status: current.status as MandateStatus,
-    action,
-    ledger,
-    idempotencyKey,
-    now: now(),
-  })
-
-  const { seq, id: decisionId } = await appendDecision({
+  const outcome = await authorizeAndExecute({
     mandateId,
-    runId,
     action,
-    decision,
-    idempotencyKey,
+    // The same tool call retried is the same request. A different tool call for
+    // the same item is a new purchase, which is why buying atta again next week
+    // is allowed rather than flagged as a replay.
+    requestId: `${runId}:${use.id}`,
+    agentRunId: runId,
+    now,
+    execute,
   })
 
   yield {
     type: 'decision',
-    seq,
-    decisionId,
-    verdict: decision.verdict,
-    reasonCodes: decision.reasonCodes,
-    checks: decision.checks,
+    seq: outcome.seq,
+    decisionId: outcome.decisionId,
+    verdict: outcome.verdict,
+    reasonCodes: outcome.reasonCodes,
+    checks: outcome.checks,
     merchantId: action.merchantId,
     itemId: action.itemId,
     amountPaise: action.amountPaise,
-    latencyMs: decision.latencyMs,
+    latencyMs: outcome.latencyMs,
   }
 
-  if (decision.verdict !== 'ALLOW') {
-    // A BLOCK is a legitimate policy outcome, not a tool malfunction, so it is
-    // returned as a normal result rather than is_error. The agent is expected to
-    // read the codes and adapt, which is the behaviour the demo shows.
+  if (outcome.verdict !== 'ALLOW') {
+    // A refusal is a legitimate policy outcome, not a tool malfunction, so it
+    // comes back as a normal result rather than is_error. The agent is expected
+    // to read the codes and adapt, which is the behaviour the demo shows.
     return {
       authorized: false,
       result: {
@@ -230,33 +224,17 @@ async function* handlePurchase(args: {
         tool_use_id: use.id,
         content: JSON.stringify({
           authorized: false,
-          reasonCodes: decision.reasonCodes,
+          reasonCodes: outcome.reasonCodes,
           guidance:
-            'This purchase was refused by the mandate policy engine. Adapt to the reason codes — ' +
-            'retrying the identical request will be refused identically.',
+            'This purchase was refused by the mandate policy engine. Adapt to the reason codes. ' +
+            'Retrying the identical request will be refused identically.',
         }),
       },
     }
   }
 
-  try {
-    const { razorpayOrderId } = await execute(decisionId)
-    yield { type: 'purchase', razorpayOrderId, amountPaise: action.amountPaise }
-
-    return {
-      authorized: true,
-      result: {
-        type: 'tool_result',
-        tool_use_id: use.id,
-        content: JSON.stringify({ authorized: true, razorpayOrderId, amountPaise: action.amountPaise }),
-      },
-    }
-  } catch (err) {
-    // Authorization succeeded but execution failed. The mandate state is intact
-    // and the decision is already recorded, so a retry is safe and idempotent.
-    const message = err instanceof Error ? err.message : String(err)
-    yield { type: 'error', message }
-
+  if (outcome.executionError) {
+    yield { type: 'error', message: outcome.executionError }
     return {
       authorized: false,
       result: {
@@ -270,6 +248,25 @@ async function* handlePurchase(args: {
         }),
       },
     }
+  }
+
+  yield {
+    type: 'purchase',
+    razorpayOrderId: outcome.razorpayOrderId!,
+    amountPaise: action.amountPaise,
+  }
+
+  return {
+    authorized: true,
+    result: {
+      type: 'tool_result',
+      tool_use_id: use.id,
+      content: JSON.stringify({
+        authorized: true,
+        razorpayOrderId: outcome.razorpayOrderId,
+        amountPaise: action.amountPaise,
+      }),
+    },
   }
 }
 
@@ -326,45 +323,10 @@ async function handleReadOnlyTool(use: ToolUse): Promise<Anthropic.ToolResultBlo
   }
 }
 
-async function appendDecision(args: {
-  mandateId: string
-  runId: string
-  action: { merchantId: string; itemId: string; category: string; amountPaise: number }
-  decision: ReturnType<typeof evaluate>
-  idempotencyKey: string
-}) {
-  const { mandateId, runId, action, decision, idempotencyKey } = args
-
-  const { seq } = await append({
-    mandateId,
-    agentRunId: runId,
-    action: 'PURCHASE',
-    requestedAction: action,
-    verdict: decision.verdict,
-    reasonCodes: decision.reasonCodes,
-    mandateSnapshotHash: decision.mandateSnapshotHash,
-    idempotencyKey,
-    latencyMs: decision.latencyMs,
-  })
-
-  const row = await prisma.decision.findUniqueOrThrow({ where: { seq }, select: { id: true } })
-  return { seq, id: row.id }
-}
-
-/**
- * Spend counted against the cap is AUTHORIZED spend — the sum of ALLOW
- * decisions — not settled spend.
- *
- * This matters. Mandate.spentPaise is incremented by the Razorpay webhook when a
- * payment is actually captured, which can lag by seconds or never arrive. If the
- * engine enforced against that, an agent could authorize ten purchases inside
- * the lag window and blow the total cap while every individual check passed. We
- * reserve against the cap the moment we authorize.
- */
 /**
  * Purchases already authorized under this mandate, newest last.
  *
- * Gives the agent a sense of what the person already has, so \"restock\" means
+ * Gives the agent a sense of what the person already has, so "restock" means
  * topping up rather than buying the same list again. This is our own ledger
  * data, not third-party content, so it is trusted input.
  */
@@ -400,24 +362,6 @@ export async function loadPurchaseHistory(
     .reverse()
 }
 
-export async function loadLedgerState(mandateId: string): Promise<LedgerState> {
-  const decisions = await prisma.decision.findMany({
-    where: { mandateId },
-    select: { verdict: true, action: true, requestedAction: true, createdAt: true, idempotencyKey: true },
-  })
-
-  let spentPaise = 0
-  const recentTxnTimestamps: Date[] = []
-  const seenIdempotencyKeys = new Set<string>()
-
-  for (const d of decisions) {
-    seenIdempotencyKeys.add(d.idempotencyKey)
-    if (d.verdict === 'ALLOW' && d.action === 'PURCHASE') {
-      const requested = JSON.parse(d.requestedAction) as { amountPaise?: number }
-      spentPaise += requested.amountPaise ?? 0
-      recentTxnTimestamps.push(d.createdAt)
-    }
-  }
-
-  return { spentPaise, recentTxnTimestamps, seenIdempotencyKeys }
-}
+// loadLedgerState now lives in @/lib/authorize alongside the path that uses it.
+// Re-exported here so existing callers keep working.
+export { loadLedgerState } from '@/lib/authorize'

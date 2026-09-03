@@ -123,8 +123,11 @@ Each of these had a plausible alternative. The alternative is named.
 `evaluate()` in `src/lib/policy/engine.ts` does no I/O, reads no clock, and makes
 no model call. Everything time-dependent arrives as an argument.
 
-It is deliberately **not** exposed as an HTTP endpoint. There is no network path
-that can reach money-execution while stepping around it.
+It is deliberately not exposed as an HTTP endpoint of its own. The property that
+matters is narrower and stronger than "no endpoint exists": there is no path to
+money that skips the engine. Every caller goes through `authorizeAndExecute()` in
+`src/lib/authorize.ts`, and that function always runs the engine. A future MCP
+server would reach the same function rather than reimplementing it.
 
 *Alternative considered:* an LLM-assisted policy layer for "edge cases". Rejected.
 A prompt-based guard can be talked out of its rules, which is the entire
