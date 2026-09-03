@@ -53,6 +53,10 @@ model AgentRun {
   mandate   Mandate   @relation(fields: [mandateId], references: [id])
   task      String
   status    String // RUNNING | COMPLETED | HALTED | ERROR
+  /// Ordered feed events for this run, as JSON. Decisions live in the ledger and
+  /// are referenced here by seq, so the transcript never duplicates them.
+  /// Persisted because navigating away used to wipe the agent's narration.
+  transcript String   @default("[]")
   startedAt DateTime  @default(now())
   endedAt   DateTime?
 

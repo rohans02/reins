@@ -22,6 +22,19 @@ import type { ModelClient, ToolUse } from './model'
  * that hangs is a demo that failed.
  */
 
+/**
+ * One entry in a run's persisted transcript.
+ *
+ * Verdicts are stored as a `seq` reference rather than a copy — the ledger is
+ * the record of what was decided, and duplicating it here would create a second
+ * version of the truth that could drift.
+ */
+export type TranscriptEntry =
+  | { t: 'say'; text: string }
+  | { t: 'tool'; name: string; input: Record<string, unknown> }
+  | { t: 'verdict'; seq: number }
+  | { t: 'system'; text: string }
+
 export const MAX_TURNS = 12
 export const MAX_WALL_CLOCK_MS = 90_000
 
@@ -81,6 +94,17 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   const history = await loadPurchaseHistory(mandateId)
   const system = buyerAgentSystemPrompt(rules, history, now())
 
+  // Flushed on every entry rather than at the end, so switching tabs or
+  // reloading mid-run does not lose what the agent said.
+  const transcript: TranscriptEntry[] = []
+  const record = async (entry: TranscriptEntry) => {
+    transcript.push(entry)
+    await prisma.agentRun.update({
+      where: { id: run.id },
+      data: { transcript: JSON.stringify(transcript) },
+    })
+  }
+
   const startedAt = Date.now()
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: task }]
 
@@ -101,7 +125,10 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         tools: AGENT_TOOLS,
       })
 
-      if (modelTurn.text) yield { type: 'text', text: modelTurn.text }
+      if (modelTurn.text) {
+        await record({ t: 'say', text: modelTurn.text })
+        yield { type: 'text', text: modelTurn.text }
+      }
 
       if (modelTurn.stopReason !== 'tool_use' || modelTurn.toolUses.length === 0) break
 
@@ -112,6 +139,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
       const results: Anthropic.ToolResultBlockParam[] = []
 
       for (const use of modelTurn.toolUses) {
+        await record({ t: 'tool', name: use.name, input: use.input })
         yield { type: 'tool_call', name: use.name, input: use.input }
 
         if (use.name === TOOL_NAMES.REQUEST_PURCHASE) {
@@ -123,6 +151,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
             execute: opts.executePurchase,
           })
           results.push(outcome.result)
+          await record({ t: 'verdict', seq: outcome.seq })
           if (outcome.authorized) purchases++
           else blocked++
         } else {
@@ -178,7 +207,10 @@ async function* handlePurchase(args: {
   runId: string
   now: () => Date
   execute?: (decisionId: string) => Promise<{ razorpayOrderId: string }>
-}): AsyncGenerator<AgentEvent, { result: Anthropic.ToolResultBlockParam; authorized: boolean }> {
+}): AsyncGenerator<
+  AgentEvent,
+  { result: Anthropic.ToolResultBlockParam; authorized: boolean; seq: number }
+> {
   const { use, mandateId, runId, now, execute } = args
 
   const action: ProposedAction = {
@@ -219,6 +251,7 @@ async function* handlePurchase(args: {
     // to read the codes and adapt, which is the behaviour the demo shows.
     return {
       authorized: false,
+      seq: outcome.seq,
       result: {
         type: 'tool_result',
         tool_use_id: use.id,
@@ -237,6 +270,7 @@ async function* handlePurchase(args: {
     yield { type: 'error', message: outcome.executionError }
     return {
       authorized: false,
+      seq: outcome.seq,
       result: {
         type: 'tool_result',
         tool_use_id: use.id,
@@ -258,6 +292,7 @@ async function* handlePurchase(args: {
 
   return {
     authorized: true,
+    seq: outcome.seq,
     result: {
       type: 'tool_result',
       tool_use_id: use.id,
