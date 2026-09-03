@@ -251,8 +251,8 @@ export function ConsoleClient({
 
             {scripted && (
               <p className="text-[11px] text-muted-foreground">
-                Scripted model: the agent&apos;s choices are fixed. The policy engine, the ledger
-                and the Razorpay orders are real.
+                This run uses a scripted agent, so its choices are fixed. The policy engine, the ledger
+                and the Razorpay orders are all real.
               </p>
             )}
           </div>

@@ -57,8 +57,8 @@ export function TrustReport({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trust Report</h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">
-            Every case runs through the real policy engine. It is a pure function, so these
-            numbers are reproducible byte-for-byte on any machine.
+            Every case runs through the real policy engine. It is a pure function, so anyone who clones
+            the repo gets these same numbers.
           </p>
         </div>
         <Button onClick={run} disabled={running} className="shrink-0">
@@ -192,8 +192,8 @@ export function TrustReport({
                 sensibly — that needs a live model and is tracked separately.
               </li>
               <li>
-                Payment authorization is partly simulated. Orders are real; bulk capture is a
-                signed synthetic webhook through the real verification path.
+                Payment authorization is partly simulated. Orders are real. Bulk capture is a signed
+                synthetic webhook sent through the real verification path.
               </li>
             </ul>
           </section>

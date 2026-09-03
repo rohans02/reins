@@ -144,8 +144,8 @@ export function MandatePanel({
             <AlertDialogHeader>
               <AlertDialogTitle>Revoke this mandate?</AlertDialogTitle>
               <AlertDialogDescription>
-                The agent&apos;s very next action is refused — including mid-run. Nothing is queued
-                and there is no grace period. Purchases already authorized are unaffected.
+                The agent&apos;s very next action is refused, even in the middle of a run. Nothing is
+                queued and there is no grace period. Purchases already authorized are unaffected.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

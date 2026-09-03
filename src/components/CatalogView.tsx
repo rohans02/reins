@@ -51,13 +51,12 @@ export function CatalogView({
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Catalog</h1>
         <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-          What the agent can see. Third-party content it reads as data, never as instruction —
-          annotated here against the active mandate so you can tell in advance what the policy
-          engine would refuse.
+          What the agent can see. It reads all of this as data, never as instruction. Each item is
+          checked against the active mandate, so you can tell in advance what would be refused.
         </p>
         {!hasMandate && (
           <p className="text-sm text-muted-foreground">
-            No active mandate, so nothing is annotated. Sign one to see the bounds applied.
+            There is no active mandate, so nothing is marked up yet. Sign one to see the bounds applied.
           </p>
         )}
       </header>
@@ -73,10 +72,10 @@ export function CatalogView({
             </h2>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            A merchant has written instructions into a product description, aimed at the agent
-            reading it. The agent may well believe it — models do. That is precisely why the
-            guarantee does not depend on the model resisting anything: the policy engine has no
-            free-text field for an instruction to occupy.
+            A merchant has written instructions into a product description, aimed at the agent reading
+            it. The agent may well believe it. Models do. That is why the guarantee never depends
+            on the model resisting anything. The policy engine has no free-text field for an
+            instruction to sit in.
           </p>
           {injected.map(({ merchant, item }) => (
             <div key={item.id} className="rounded-md bg-background border border-border p-3">
