@@ -14,7 +14,12 @@ import { GENESIS_HASH, computeRowHash, type LedgerDigest } from './chain'
 export interface LedgerEntry {
   mandateId: string
   agentRunId?: string | null
-  action: 'PURCHASE' | 'MANDATE_ISSUED' | 'MANDATE_REVOKED' | 'AGENT_ERROR'
+  action:
+    | 'PURCHASE'
+    | 'MANDATE_ISSUED'
+    | 'MANDATE_REVOKED'
+    | 'MANDATE_SUPERSEDED'
+    | 'AGENT_ERROR'
   requestedAction: unknown
   verdict: 'ALLOW' | 'BLOCK' | 'ESCALATE'
   reasonCodes: string[]

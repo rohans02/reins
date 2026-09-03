@@ -35,5 +35,7 @@ export const MandateStatus = {
   REVOKED: 'REVOKED',
   EXPIRED: 'EXPIRED',
   EXHAUSTED: 'EXHAUSTED',
+  /** Replaced by a newer mandate. Only one mandate may be ACTIVE at a time. */
+  SUPERSEDED: 'SUPERSEDED',
 } as const
 export type MandateStatus = (typeof MandateStatus)[keyof typeof MandateStatus]

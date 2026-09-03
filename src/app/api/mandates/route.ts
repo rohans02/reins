@@ -50,6 +50,32 @@ export async function POST(request: Request) {
     )
   }
 
+  // ONE ACTIVE MANDATE AT A TIME.
+  //
+  // Without this, signing a second mandate left the first one ACTIVE. The console
+  // only ever shows the newest, so the older one became invisible authority —
+  // still live, still spendable through the API, with nothing on screen saying
+  // so. Silently orphaned authority is exactly the failure this product exists
+  // to prevent, so superseding is explicit and it is written to the ledger.
+  const superseded = await prisma.mandate.findMany({ where: { status: 'ACTIVE' } })
+
+  for (const old of superseded) {
+    await prisma.mandate.update({
+      where: { id: old.id },
+      data: { status: 'SUPERSEDED' },
+    })
+    await append({
+      mandateId: old.id,
+      action: 'MANDATE_SUPERSEDED',
+      requestedAction: { supersededAt: new Date().toISOString() },
+      verdict: 'ALLOW',
+      reasonCodes: [],
+      mandateSnapshotHash: canonicalHash(JSON.parse(old.rules)),
+      idempotencyKey: canonicalHash({ superseded: old.id, at: Date.now() }),
+      latencyMs: 0,
+    })
+  }
+
   const signature = signMandate(rules)
 
   const mandate = await prisma.mandate.create({
@@ -75,5 +101,8 @@ export async function POST(request: Request) {
     latencyMs: 0,
   })
 
-  return Response.json({ mandateId: mandate.id, signature, status: mandate.status }, { status: 201 })
+  return Response.json(
+    { mandateId: mandate.id, signature, status: mandate.status, superseded: superseded.length },
+    { status: 201 },
+  )
 }

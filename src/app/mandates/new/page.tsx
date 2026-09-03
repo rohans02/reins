@@ -76,6 +76,7 @@ export default function NewMandatePage() {
   const [drafting, setDrafting] = useState(false)
   const [phase, setPhase] = useState<Phase>('editing')
   const [signature, setSignature] = useState<string | null>(null)
+  const [superseded, setSuperseded] = useState(0)
 
   async function draft() {
     setDrafting(true)
@@ -113,11 +114,13 @@ export default function NewMandatePage() {
       const body = (await res.json()) as {
         mandateId?: string
         signature?: string
+        superseded?: number
         issues?: Array<{ message: string }>
       }
       if (!res.ok) throw new Error(body.issues?.[0]?.message ?? 'Could not sign the mandate')
 
       setSignature(body.signature ?? null)
+      setSuperseded(body.superseded ?? 0)
       setPhase('signed')
       router.refresh()
     } catch (err) {
@@ -127,7 +130,7 @@ export default function NewMandatePage() {
   }
 
   if (phase === 'signed') {
-    return <Signed rules={rules} intent={intent} signature={signature} />
+    return <Signed rules={rules} intent={intent} signature={signature} superseded={superseded} />
   }
 
   const canonical = JSON.stringify(rules, Object.keys(rules).sort(), 2)
@@ -250,10 +253,12 @@ function Signed({
   rules,
   intent,
   signature,
+  superseded,
 }: {
   rules: Rules
   intent: string
   signature: string | null
+  superseded: number
 }) {
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -275,6 +280,13 @@ function Signed({
             active
           </span>
         </div>
+
+        {superseded > 0 && (
+          <p className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+            Replaced {superseded} previously active {superseded === 1 ? 'mandate' : 'mandates'}. Only one
+            mandate can be active at a time, so the older authority is now dead.
+          </p>
+        )}
 
         <p className="text-sm text-muted-foreground leading-relaxed border-l-2 border-border pl-3">
           &ldquo;{intent}&rdquo;
