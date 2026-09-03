@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Moon, Sun } from 'lucide-react'
 
 /**
  * Light/dark toggle.
@@ -35,11 +36,9 @@ export function ThemeToggle({ dark: initialDark }: { dark: boolean; collapsed?: 
       onClick={toggle}
       title={dark ? 'Switch to light' : 'Switch to dark'}
       aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-      className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+      className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span aria-hidden className="font-mono text-xs leading-none">
-        {dark ? '☀' : '☾'}
-      </span>
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
       <span className="sr-only">Toggle theme</span>
     </button>
   )

@@ -3,6 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  FileSignature,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ScrollText,
+  ShieldCheck,
+  Store,
+  Terminal,
+  type LucideIcon,
+} from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { formatINR } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -12,24 +22,32 @@ import { cn } from '@/lib/utils'
  * not part of the demo — once a mandate exists you never leave the console — so
  * the sidebar should be able to get out of the way.
  *
+ * Collapsed, each item is its icon rather than an initial. Letters are a poor
+ * rail: "C" and "K" carry no meaning, and two items starting with the same
+ * letter would collide. The icon plus the native tooltip does the job.
+ *
  * It also carries live mandate state, fed from the layout. A judge glancing at
- * the left edge should be able to tell whether authority is currently in force
- * without reading the console.
+ * the left edge should be able to tell whether authority is in force without
+ * reading the console.
  */
 
-const NAV = [
-  { href: '/console', label: 'Console', short: 'C' },
-  { href: '/mandates/new', label: 'Mandate Studio', short: 'M' },
-  { href: '/catalog', label: 'Catalog', short: 'K' },
-  { href: '/ledger', label: 'Audit Ledger', short: 'L' },
-  { href: '/trust', label: 'Trust Report', short: 'T' },
-] as const
+const NAV: Array<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: '/console', label: 'Console', icon: Terminal },
+  { href: '/mandates/new', label: 'Mandate Studio', icon: FileSignature },
+  { href: '/catalog', label: 'Catalog', icon: Store },
+  { href: '/ledger', label: 'Audit Ledger', icon: ScrollText },
+  { href: '/trust', label: 'Trust Report', icon: ShieldCheck },
+]
 
 export interface SidebarMandate {
   status: string
   authorizedPaise: number
   totalCapPaise: number
 }
+
+/** Shared shape for the two small icon buttons, so hover reads as one system. */
+const ICON_BUTTON =
+  'flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export function Sidebar({
   mandate,
@@ -45,13 +63,13 @@ export function Sidebar({
     <aside
       className={cn(
         'shrink-0 border-r border-border bg-sidebar flex flex-col transition-[width] duration-200',
-        collapsed ? 'w-14' : 'w-56',
+        collapsed ? 'w-16' : 'w-56',
       )}
     >
       <div
         className={cn(
           'border-b border-border flex items-center gap-1',
-          collapsed ? 'px-2 py-4 justify-center' : 'px-4 py-4',
+          collapsed ? 'px-4 py-4 justify-center' : 'px-4 py-4',
         )}
       >
         {!collapsed && (
@@ -66,34 +84,35 @@ export function Sidebar({
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+          className={ICON_BUTTON}
         >
-          <span aria-hidden className="font-mono text-xs leading-none">
-            {collapsed ? '»' : '«'}
-          </span>
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </button>
       </div>
 
       {/* Live mandate state — is authority in force right now? */}
       <MandateStatus mandate={mandate} collapsed={collapsed} />
 
-      <nav className="flex-1 p-2 space-y-0.5">
+      <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-2')}>
         {NAV.map((item) => {
           const active = pathname === item.href
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
+              aria-label={collapsed ? item.label : undefined}
               className={cn(
-                'block rounded-md text-sm transition-colors',
-                collapsed ? 'px-0 py-2 text-center font-mono' : 'px-3 py-2',
+                'flex items-center rounded-md text-sm transition-colors',
+                collapsed ? 'size-10 mx-auto justify-center' : 'gap-2.5 px-3 py-2',
                 active
                   ? 'bg-accent text-accent-foreground font-medium'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
-              {collapsed ? item.short : item.label}
+              <Icon className="size-4 shrink-0" />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
           )
         })}
@@ -102,7 +121,7 @@ export function Sidebar({
       <div
         className={cn(
           'border-t border-border flex items-center gap-2',
-          collapsed ? 'px-2 py-3 justify-center' : 'px-4 py-3',
+          collapsed ? 'px-4 py-3 justify-center' : 'px-4 py-3',
         )}
       >
         {!collapsed && (
@@ -131,7 +150,7 @@ function MandateStatus({
       <div className="flex justify-center py-3 border-b border-border">
         <span
           aria-hidden
-          title={mandate ? mandate.status : 'No mandate'}
+          title={mandate ? `Mandate ${mandate.status}` : 'No mandate'}
           className={cn(
             'inline-block size-2 rounded-full',
             active && 'bg-emerald-600',
@@ -176,7 +195,10 @@ function MandateStatus({
 
       <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={cn('h-full transition-[width] duration-300', revoked ? 'bg-muted-foreground' : 'bg-emerald-600')}
+          className={cn(
+            'h-full transition-[width] duration-300',
+            revoked ? 'bg-muted-foreground' : 'bg-emerald-600',
+          )}
           style={{ width: `${pct}%` }}
         />
       </div>
