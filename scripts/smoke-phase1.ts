@@ -48,7 +48,12 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
   }
 
   // Clean slate so the run is repeatable.
+  // Foreign-key order matters. Transactions point at decisions and runs point
+  // at mandates, so clearing decisions first fails outright if a previous agent
+  // run left rows behind — which it does, now that mandates outlive a run.
+  await prisma.transaction.deleteMany()
   await prisma.decision.deleteMany()
+  await prisma.agentRun.deleteMany()
   await prisma.mandate.deleteMany()
 
   const signature = signMandate(RULES)
@@ -131,7 +136,9 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
   }
 
   // Leave the DB clean for the next run.
+  await prisma.transaction.deleteMany()
   await prisma.decision.deleteMany()
+  await prisma.agentRun.deleteMany()
   await prisma.mandate.deleteMany()
 }
 

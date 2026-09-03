@@ -18,6 +18,7 @@
     "smoke:razorpay": "tsx scripts/smoke-razorpay.ts",
     "smoke:phase1": "tsx scripts/smoke-phase1.ts",
     "smoke:phase2": "tsx scripts/smoke-phase2.ts",
+    "smoke:mandates": "tsx scripts/smoke-multi-mandate.ts",
     "smoke:gemini": "tsx scripts/smoke-gemini.ts"
   },
   "dependencies": {

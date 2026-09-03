@@ -25,6 +25,9 @@ import { cn } from '@/lib/utils'
 
 export interface LedgerRow {
   seq: number
+  mandateId: string
+  /** Short human label for the mandate, for the filter and the row. */
+  mandateLabel: string
   createdAt: string
   action: string
   verdict: string
@@ -47,7 +50,19 @@ export interface ChainStatus {
 export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainStatus }) {
   const router = useRouter()
   const [filter, setFilter] = useState<Filter>('ALL')
-  const visible = rows.filter((r) => filter === 'ALL' || r.verdict === filter)
+  // The ledger is deliberately ONE chain across every mandate. Splitting it per
+  // mandate would let a decision be quietly left out of a chain and still
+  // verify, which is the whole property the ledger exists to have. So mandate
+  // is a filter over one sequence, never a separate sequence.
+  const [mandateId, setMandateId] = useState<string>('ALL')
+
+  const mandates = [...new Map(rows.map((r) => [r.mandateId, r.mandateLabel])).entries()]
+
+  const visible = rows.filter(
+    (r) =>
+      (filter === 'ALL' || r.verdict === filter) &&
+      (mandateId === 'ALL' || r.mandateId === mandateId),
+  )
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
@@ -81,6 +96,24 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
             {f}
           </Button>
         ))}
+        {mandates.length > 1 && (
+          <>
+            <span className="ml-2 text-xs text-muted-foreground">Mandate</span>
+            <select
+              value={mandateId}
+              onChange={(e) => setMandateId(e.target.value)}
+              aria-label="Filter by mandate"
+              className="max-w-[16rem] truncate rounded-md border border-border bg-background px-2 py-1 text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="ALL">All mandates</option>
+              {mandates.map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <Button size="sm" variant="ghost" onClick={() => router.refresh()} className="ml-auto text-xs">
           Refresh
         </Button>
@@ -100,6 +133,7 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
               <TableRow>
                 <TableHead className="w-12">#</TableHead>
                 <TableHead className="w-24">Time</TableHead>
+                {mandates.length > 1 && <TableHead className="w-32">Mandate</TableHead>}
                 <TableHead className="w-20">Verdict</TableHead>
                 <TableHead>Detail</TableHead>
                 <TableHead className="w-28 text-right">Amount</TableHead>
@@ -114,6 +148,14 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {new Date(r.createdAt).toLocaleTimeString()}
                   </TableCell>
+                  {mandates.length > 1 && (
+                    <TableCell
+                      className="font-mono text-xs text-muted-foreground truncate"
+                      title={r.mandateLabel}
+                    >
+                      {r.mandateLabel}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <span
                       className={cn(

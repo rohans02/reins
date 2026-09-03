@@ -206,15 +206,34 @@ eventually be talked around, and is built so that it does not matter when it is.
 Floats lose money, and Razorpay's own API takes paise. The only conversion is in
 two form inputs, so a person types `800` rather than `80000`.
 
-### One mandate is active at a time
+### Mandates run concurrently, and every one of them is visible
 
-Signing a new mandate supersedes any existing active one, and the supersede is
-written to the ledger.
+A person can hold several live mandates at once: groceries at one set of
+merchants, pharmacy at another, each on its own budget. The engine was always
+built this way, because caps, velocity and spend are all keyed by mandate id.
+Only the UI ever assumed there was one.
 
-Before this, signing twice left the first mandate ACTIVE while the console showed
-only the newest — invisible authority that was still spendable through the API.
-Silently orphaned authority is exactly the failure this product exists to
+An earlier build made signing supersede every other active mandate. The reason
+was real. The console showed only the newest, so an older ACTIVE mandate stayed
+live and spendable through the API with nothing on screen saying so, and
+silently orphaned authority is exactly the failure this product exists to
 prevent.
+
+But that answered a display problem by destroying authority the person never
+asked to give up. The replacement is stricter. `/mandates` lists every mandate
+that exists, states the combined exposure across all of them as a single number,
+and puts revoke one click away. The sidebar reports the same total rather than
+one mandate's. Nothing is hidden, so nothing has to be silently withdrawn.
+
+The isolation this depends on is proved by `npm run smoke:mandates`, which shows
+that spending under one mandate leaves another's cap untouched, that a purchase
+allowed under one is refused under the other on its own rules, and that revoking
+one leaves the other spending.
+
+The audit ledger stays a SINGLE hash chain across all mandates. A per-mandate
+chain could omit a decision and still verify, which would defeat the point of
+having one, so mandate is a filter over one sequence and never a sequence of its
+own.
 
 ### The agent has its own guardrails, separate from the money
 

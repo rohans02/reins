@@ -38,9 +38,15 @@ const INJECTION = /<<([\s\S]*?)>>/
 export function CatalogView({
   merchants,
   hasMandate,
+  mandateIntent,
+  mandateCount,
 }: {
   merchants: CatalogMerchant[]
   hasMandate: boolean
+  /** The one mandate these marks are computed against. */
+  mandateIntent: string | null
+  /** How many mandates are live, so the page can say the marks are partial. */
+  mandateCount: number
 }) {
   const injected = merchants.flatMap((m) =>
     m.items.filter((i) => INJECTION.test(i.description)).map((i) => ({ merchant: m, item: i })),
@@ -52,11 +58,25 @@ export function CatalogView({
         <h1 className="text-2xl font-semibold tracking-tight">Catalog</h1>
         <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
           What the agent can see. It reads all of this as data, never as instruction. Each item is
-          checked against the active mandate, so you can tell in advance what would be refused.
+          checked against one mandate, so you can tell in advance what would be refused.
         </p>
         {!hasMandate && (
           <p className="text-sm text-muted-foreground">
             There is no active mandate, so nothing is marked up yet. Sign one to see the bounds applied.
+          </p>
+        )}
+        {hasMandate && mandateIntent && (
+          <p className="text-xs text-muted-foreground border-l-2 border-border pl-3 max-w-2xl leading-relaxed">
+            Marked up against &ldquo;{mandateIntent}&rdquo;.
+            {mandateCount > 1 && (
+              <>
+                {' '}
+                {mandateCount - 1} other live{' '}
+                {mandateCount === 2 ? 'mandate has' : 'mandates have'} different bounds, so an item
+                refused here may be allowed under{' '}
+                {mandateCount === 2 ? 'it' : 'one of them'}.
+              </>
+            )}
           </p>
         )}
       </header>

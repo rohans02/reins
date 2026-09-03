@@ -65,6 +65,7 @@ Then open <http://localhost:3000>, create a mandate, and run the agent.
 | `npm run eval` | Adversarial suite, prints the metrics table |
 | `npm run smoke:phase1` | sign → evaluate → append → verify → tamper → detected |
 | `npm run smoke:phase2` | scripted agent → policy gate → real Razorpay orders → webhook → revoke |
+| `npm run smoke:mandates` | Two live mandates, and proof that neither can spend the other's budget |
 | `npm run smoke:razorpay` | Confirms the Orders API works with your test keys |
 | `npm run db:reset` | Wipe and reseed. Stop `npm run dev` first, it holds the database file |
 
@@ -131,14 +132,15 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 
 ## What works today
 
-- Signed mandates, with supersede so only one can be active at a time
+- Signed mandates, several live at once, each an independent budget
 - The nine-check policy engine, with 29 unit tests
 - Append-only SHA-256 hash-chained audit ledger with live verification
 - A buyer agent with three tools and no credentials
 - Real Razorpay test-mode orders, with ids that appear in the dashboard
 - Webhook HMAC verification
 - Revocation that takes effect on the agent's very next action, including mid-run
-- Five screens: Mission Control, Mandate Studio, Catalog, Audit Ledger, Trust Report
+- A mandate manager showing every mandate and the combined live exposure in one number
+- Six screens: Mission Control, Mandates, Mandate Studio, Catalog, Audit Ledger, Trust Report
 - The 68-case adversarial suite
 
 Not yet done: the LLM block-explainer is stubbed, and the agent has not been run against a

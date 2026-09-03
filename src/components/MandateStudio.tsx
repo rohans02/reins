@@ -77,7 +77,8 @@ export function MandateStudio({ defaultExpiresAt }: { defaultExpiresAt: string }
   const [drafting, setDrafting] = useState(false)
   const [phase, setPhase] = useState<Phase>('editing')
   const [signature, setSignature] = useState<string | null>(null)
-  const [superseded, setSuperseded] = useState(0)
+  const [mandateId, setMandateId] = useState<string | null>(null)
+  const [alsoLive, setAlsoLive] = useState(0)
 
   async function draft() {
     setDrafting(true)
@@ -115,13 +116,14 @@ export function MandateStudio({ defaultExpiresAt }: { defaultExpiresAt: string }
       const body = (await res.json()) as {
         mandateId?: string
         signature?: string
-        superseded?: number
+        alsoLive?: number
         issues?: Array<{ message: string }>
       }
       if (!res.ok) throw new Error(body.issues?.[0]?.message ?? 'Could not sign the mandate')
 
       setSignature(body.signature ?? null)
-      setSuperseded(body.superseded ?? 0)
+      setMandateId(body.mandateId ?? null)
+      setAlsoLive(body.alsoLive ?? 0)
       setPhase('signed')
       router.refresh()
     } catch (err) {
@@ -131,7 +133,15 @@ export function MandateStudio({ defaultExpiresAt }: { defaultExpiresAt: string }
   }
 
   if (phase === 'signed') {
-    return <Signed rules={rules} intent={intent} signature={signature} superseded={superseded} />
+    return (
+      <Signed
+        rules={rules}
+        intent={intent}
+        signature={signature}
+        mandateId={mandateId}
+        alsoLive={alsoLive}
+      />
+    )
   }
 
   const canonical = JSON.stringify(rules, Object.keys(rules).sort(), 2)
@@ -261,12 +271,14 @@ function Signed({
   rules,
   intent,
   signature,
-  superseded,
+  mandateId,
+  alsoLive,
 }: {
   rules: Rules
   intent: string
   signature: string | null
-  superseded: number
+  mandateId: string | null
+  alsoLive: number
 }) {
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -289,10 +301,15 @@ function Signed({
           </span>
         </div>
 
-        {superseded > 0 && (
+        {alsoLive > 0 && (
           <p className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
-            Replaced {superseded} active {superseded === 1 ? 'mandate' : 'mandates'}. Only one mandate can be
-            active at a time, so the older one can no longer spend anything.
+            This is not your only live mandate. {alsoLive} other{' '}
+            {alsoLive === 1 ? 'mandate is' : 'mandates are'} still able to spend, on{' '}
+            {alsoLive === 1 ? 'its own budget' : 'their own budgets'}. Manage them from{' '}
+            <Link href="/mandates" className="underline underline-offset-2">
+              Mandates
+            </Link>
+            .
           </p>
         )}
 
@@ -316,9 +333,23 @@ function Signed({
           <Summary label="Total cap" value={formatINR(rules.totalCapPaise)} />
         </dl>
 
-        <Button render={<Link href="/console" />} nativeButton={false} className="w-full h-10">
-          Open Mission Control
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            render={<Link href={mandateId ? `/console?mandate=${mandateId}` : '/console'} />}
+            nativeButton={false}
+            className="flex-1 h-10"
+          >
+            Open Mission Control
+          </Button>
+          <Button
+            variant="outline"
+            render={<Link href="/mandates" />}
+            nativeButton={false}
+            className="h-10"
+          >
+            All mandates
+          </Button>
+        </div>
       </div>
     </div>
   )

@@ -13,12 +13,21 @@ export const dynamic = 'force-dynamic'
 
 export default async function LedgerPage() {
   const [decisions, chain] = await Promise.all([
-    prisma.decision.findMany({ orderBy: { seq: 'desc' }, include: { transaction: true }, take: 200 }),
+    prisma.decision.findMany({
+      orderBy: { seq: 'desc' },
+      include: { transaction: true, mandate: { select: { intentText: true } } },
+      take: 200,
+    }),
     verifyChain(),
   ])
 
+  // One chain across every mandate, always. A per-mandate chain could omit a
+  // decision and still verify, which would defeat the point of having one.
+  // Mandate is therefore a label and a filter, never a separate sequence.
   const rows: LedgerRow[] = decisions.map((r) => ({
     seq: r.seq,
+    mandateId: r.mandateId,
+    mandateLabel: shortLabel(r.mandate.intentText, r.mandateId),
     createdAt: r.createdAt.toISOString(),
     action: r.action,
     verdict: r.verdict,
@@ -31,4 +40,11 @@ export default async function LedgerPage() {
   }))
 
   return <LedgerTable rows={rows} chain={chain} />
+}
+
+/** Enough of the intent to tell two mandates apart in a narrow column. */
+function shortLabel(intentText: string, id: string): string {
+  const text = intentText.trim()
+  if (!text) return id.slice(0, 10)
+  return text.length > 28 ? `${text.slice(0, 27).trimEnd()}…` : text
 }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { CatalogView, type CatalogMerchant } from '@/components/CatalogView'
 
 /**
@@ -11,16 +12,23 @@ import { CatalogView, type CatalogMerchant } from '@/components/CatalogView'
  */
 export const dynamic = 'force-dynamic'
 
-export default async function CatalogPage() {
-  const merchants = await prisma.merchant.findMany({
-    include: { items: { orderBy: { pricePaise: 'asc' } } },
-    orderBy: { id: 'asc' },
-  })
+export default async function CatalogPage({ searchParams }: PageProps<'/catalog'>) {
+  const requested = (await searchParams).mandate
 
-  const mandate = await prisma.mandate.findFirst({ orderBy: { createdAt: 'desc' } })
-  const rules = mandate
-    ? (JSON.parse(mandate.rules) as { merchants: string[]; categories: string[]; perTxnCapPaise: number })
-    : null
+  const [merchants, summaries] = await Promise.all([
+    prisma.merchant.findMany({
+      include: { items: { orderBy: { pricePaise: 'asc' } } },
+      orderBy: { id: 'asc' },
+    }),
+    loadMandateSummaries(),
+  ])
+
+  // Allowed and over-cap are properties of ONE mandate, not of the catalog, and
+  // with several live at once an item can be allowed under one and refused
+  // under another. So the screen marks up against a single named mandate rather
+  // than blurring them into a union that matches no real authority.
+  const mandate = pickMandate(summaries, typeof requested === 'string' ? requested : undefined)
+  const rules = mandate?.rules ?? null
 
   const data: CatalogMerchant[] = merchants.map((m) => ({
     id: m.id,
@@ -38,5 +46,12 @@ export default async function CatalogPage() {
     })),
   }))
 
-  return <CatalogView merchants={data} hasMandate={Boolean(rules)} />
+  return (
+    <CatalogView
+      merchants={data}
+      hasMandate={Boolean(rules)}
+      mandateIntent={mandate?.intentText ?? null}
+      mandateCount={summaries.filter((m) => m.live).length}
+    />
+  )
 }

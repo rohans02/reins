@@ -3,6 +3,7 @@ import { canonical, canonicalHash } from '@/lib/mandate/canonical'
 import { signMandate } from '@/lib/mandate/sign'
 import { MandateRulesSchema } from '@/lib/mandate/schema'
 import { append } from '@/lib/ledger/append'
+import { loadMandateSummaries } from '@/lib/mandates/summary'
 
 /** GET /api/mandates — every mandate, newest first. */
 export async function GET() {
@@ -50,32 +51,24 @@ export async function POST(request: Request) {
     )
   }
 
-  // ONE ACTIVE MANDATE AT A TIME.
+  // CONCURRENT MANDATES ARE ALLOWED, AND THAT IS ONLY SAFE BECAUSE THEY ARE ALL
+  // VISIBLE.
   //
-  // Without this, signing a second mandate left the first one ACTIVE. The console
-  // only ever shows the newest, so the older one became invisible authority —
-  // still live, still spendable through the API, with nothing on screen saying
-  // so. Silently orphaned authority is exactly the failure this product exists
-  // to prevent, so superseding is explicit and it is written to the ledger.
-  const superseded = await prisma.mandate.findMany({ where: { status: 'ACTIVE' } })
-
-  for (const old of superseded) {
-    await prisma.mandate.update({
-      where: { id: old.id },
-      data: { status: 'SUPERSEDED' },
-    })
-    await append({
-      mandateId: old.id,
-      action: 'MANDATE_SUPERSEDED',
-      requestedAction: { supersededAt: new Date().toISOString() },
-      verdict: 'ALLOW',
-      reasonCodes: [],
-      mandateSnapshotHash: canonicalHash(JSON.parse(old.rules)),
-      idempotencyKey: canonicalHash({ superseded: old.id, at: Date.now() }),
-      latencyMs: 0,
-    })
-  }
-
+  // Signing used to supersede every other active mandate. The reason was real:
+  // the console showed only the newest one, so an older ACTIVE mandate stayed
+  // live and spendable through the API with nothing on screen saying so, and
+  // silently orphaned authority is the exact failure this product exists to
+  // prevent.
+  //
+  // Superseding solved that by destroying authority the person never asked to
+  // give up, which is a blunt answer to a display problem. The replacement is
+  // stricter. /mandates lists every mandate that exists, states the combined
+  // exposure across all of them in one number, and revoking is one click from
+  // that list. Nothing is hidden, so nothing has to be silently withdrawn.
+  //
+  // Each mandate stays an independent budget. Caps, velocity and spend are all
+  // scoped by mandate id in the engine, so two live mandates cannot borrow
+  // headroom from one another.
   const signature = signMandate(rules)
 
   const mandate = await prisma.mandate.create({
@@ -101,8 +94,14 @@ export async function POST(request: Request) {
     latencyMs: 0,
   })
 
+  // Signing no longer withdraws anything, so the response has to say what else
+  // is still able to spend. A person who signs a second mandate should learn it
+  // from the confirmation screen, not from a surprise on the ledger.
+  const others = await loadMandateSummaries()
+  const alsoLive = others.filter((m) => m.live && m.id !== mandate.id).length
+
   return Response.json(
-    { mandateId: mandate.id, signature, status: mandate.status, superseded: superseded.length },
+    { mandateId: mandate.id, signature, status: mandate.status, alsoLive },
     { status: 201 },
   )
 }

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { MandatePanel, type MandateView } from '@/components/MandatePanel'
 import { ActivityFeed, type FeedRow } from '@/components/ActivityFeed'
 import { LedgerSlideOver } from '@/components/LedgerSlideOver'
+import { MandateSwitcher, type SwitchableMandate } from '@/components/MandateSwitcher'
 
 /**
  * ★ MISSION CONTROL — roughly 70% of the five-minute demo happens on this screen.
@@ -26,10 +27,13 @@ import { LedgerSlideOver } from '@/components/LedgerSlideOver'
 export function ConsoleClient({
   mandate,
   initialRows,
+  switchable,
 }: {
   mandate: MandateView | null
   /** Verdict history rebuilt from the ledger, so a reload keeps the evidence. */
   initialRows: FeedRow[]
+  /** Every mandate the console can be pointed at, for the header switcher. */
+  switchable: SwitchableMandate[]
 }) {
   const router = useRouter()
 
@@ -204,6 +208,7 @@ export function ConsoleClient({
           </p>
         </div>
         <div className="flex-1" />
+        <MandateSwitcher current={mandate.id} options={switchable} />
         <LedgerSlideOver />
       </header>
 

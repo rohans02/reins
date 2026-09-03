@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { prisma } from '@/lib/db'
-import { loadLedgerState } from '@/lib/agent/loop'
+import { loadMandateSummaries, totalLiveExposurePaise } from '@/lib/mandates/summary'
 import { Sidebar } from '@/components/Sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
@@ -25,8 +24,13 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
 
   // The sidebar shows live mandate state, so the layout loads it. Refreshed by
   // router.refresh() along with the page.
-  const mandate = await prisma.mandate.findFirst({ orderBy: { createdAt: 'desc' } })
-  const ledger = mandate ? await loadLedgerState(mandate.id) : null
+  //
+  // It reports the TOTAL across every live mandate, not the newest one. With
+  // concurrent mandates the newest understates what an agent could spend, and a
+  // sidebar that quietly under-reports exposure is worse than one showing
+  // nothing at all.
+  const summaries = await loadMandateSummaries()
+  const live = summaries.filter((m) => m.live)
 
   return (
     <html
@@ -37,15 +41,14 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <div className="flex h-screen">
           <Sidebar
             dark={dark}
-            mandate={
-              mandate && ledger
-                ? {
-                    status: mandate.status,
-                    authorizedPaise: ledger.spentPaise,
-                    totalCapPaise: mandate.totalCapPaise,
-                  }
-                : null
-            }
+            authority={{
+              liveCount: live.length,
+              everSigned: summaries.length,
+              authorizedPaise: live.reduce((sum, m) => sum + m.authorizedPaise, 0),
+              totalCapPaise: live.reduce((sum, m) => sum + m.totalCapPaise, 0),
+              remainingPaise: totalLiveExposurePaise(summaries),
+              anyRevoked: summaries.some((m) => m.status === 'REVOKED'),
+            }}
           />
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

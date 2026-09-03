@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { loadLedgerState, type TranscriptEntry } from '@/lib/agent/loop'
+import type { TranscriptEntry } from '@/lib/agent/loop'
+import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { ConsoleClient } from '@/components/ConsoleClient'
 import type { FeedRow } from '@/components/ActivityFeed'
 
@@ -13,15 +14,32 @@ import type { FeedRow } from '@/components/ActivityFeed'
  * The run transcript owns ORDER and the agent's narration. The ledger owns every
  * VERDICT, and the transcript only references those by sequence number, so there
  * is never a second copy of a decision that could drift from the audit record.
+ *
+ * WHICH MANDATE. More than one can be live, so the console works on exactly one
+ * at a time and says which. It comes from `?mandate=`, falling back to the
+ * newest live one. Naming it in the URL rather than holding it in a session
+ * keeps the choice explicit: a run is always bound to the mandate on screen.
  */
 export const dynamic = 'force-dynamic'
 
-export default async function ConsolePage() {
-  const mandate = await prisma.mandate.findFirst({ orderBy: { createdAt: 'desc' } })
-  if (!mandate) return <ConsoleClient mandate={null} initialRows={[]} />
+export default async function ConsolePage({
+  searchParams,
+}: PageProps<'/console'>) {
+  const requested = (await searchParams).mandate
+  const summaries = await loadMandateSummaries()
+  const mandate = pickMandate(summaries, typeof requested === 'string' ? requested : undefined)
 
-  const [ledger, latestRun, decisions] = await Promise.all([
-    loadLedgerState(mandate.id),
+  // Only live mandates can be switched to, because a run started against a
+  // revoked or exhausted one is refused on its first purchase anyway.
+  const switchable = summaries
+    .filter((m) => m.live || m.id === mandate?.id)
+    .map((m) => ({ id: m.id, intentText: m.intentText, live: m.live }))
+
+  if (!mandate) {
+    return <ConsoleClient mandate={null} initialRows={[]} switchable={[]} />
+  }
+
+  const [latestRun, decisions] = await Promise.all([
     prisma.agentRun.findFirst({
       where: { mandateId: mandate.id },
       orderBy: { startedAt: 'desc' },
@@ -80,15 +98,16 @@ export default async function ConsolePage() {
   return (
     <ConsoleClient
       initialRows={initialRows}
+      switchable={switchable}
       mandate={{
         id: mandate.id,
         status: mandate.status,
         intentText: mandate.intentText,
-        rules: JSON.parse(mandate.rules) as never,
+        rules: mandate.rules,
         totalCapPaise: mandate.totalCapPaise,
-        authorizedPaise: ledger.spentPaise,
-        settledPaise: mandate.spentPaise,
-        expiresAt: mandate.expiresAt.toISOString(),
+        authorizedPaise: mandate.authorizedPaise,
+        settledPaise: mandate.settledPaise,
+        expiresAt: mandate.expiresAt,
       }}
     />
   )
