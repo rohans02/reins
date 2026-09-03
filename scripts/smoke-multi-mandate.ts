@@ -3,7 +3,8 @@ import { prisma } from '../src/lib/db'
 import { canonical } from '../src/lib/mandate/canonical'
 import { signMandate } from '../src/lib/mandate/sign'
 import type { MandateRules } from '../src/lib/mandate/schema'
-import { authorizeAndExecute } from '../src/lib/authorize'
+import { authorizeAndExecute, MandateOwnershipError } from '../src/lib/authorize'
+import { DEFAULT_USER_ID } from '../src/lib/auth/users'
 import { loadMandateSummaries, totalLiveExposurePaise } from '../src/lib/mandates/summary'
 import { verifyChain } from '../src/lib/ledger/verify'
 import { formatINR } from '../src/lib/money'
@@ -18,6 +19,9 @@ import { formatINR } from '../src/lib/money'
  *   2. an item allowed under one is refused under the other, on its own rules
  *   3. revoking one leaves the other able to spend
  *   4. combined exposure is the sum of what is left across live mandates
+ *
+ * It then proves the TENANCY boundary, which is a different question: a mandate
+ * id held by the wrong person must be worth nothing.
  *
  * Nothing here calls Razorpay. Execution is stubbed so the run is free and
  * offline; the policy engine and the ledger are the real ones.
@@ -54,9 +58,10 @@ function check(label: string, passed: boolean, detail: string) {
   console.log(`        ${detail}`)
 }
 
-async function createMandate(intent: string, rules: MandateRules) {
+async function createMandate(intent: string, rules: MandateRules, userId = DEFAULT_USER_ID) {
   return prisma.mandate.create({
     data: {
+      userId,
       status: 'ACTIVE',
       intentText: intent,
       rules: canonical(rules),
@@ -104,6 +109,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
   for (const action of spends) {
     const r = await authorizeAndExecute({
       mandateId: groceries.id,
+      actorUserId: DEFAULT_USER_ID,
       action,
       requestId: `groceries-${action.itemId}`,
       execute: noPayment,
@@ -111,7 +117,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
     if (r.verdict === 'ALLOW') spent += action.amountPaise
   }
 
-  const afterSpend = await loadMandateSummaries()
+  const afterSpend = await loadMandateSummaries(DEFAULT_USER_ID)
   const g1 = afterSpend.find((m) => m.id === groceries.id)!
   const p1 = afterSpend.find((m) => m.id === pharmacy.id)!
 
@@ -127,6 +133,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
 
   const underPharmacy = await authorizeAndExecute({
     mandateId: pharmacy.id,
+    actorUserId: DEFAULT_USER_ID,
     action: milk,
     requestId: 'cross-check-milk',
     execute: noPayment,
@@ -145,6 +152,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
 
   const afterRevoke = await authorizeAndExecute({
     mandateId: pharmacy.id,
+    actorUserId: DEFAULT_USER_ID,
     action: {
       merchantId: 'medplus',
       itemId: 'mp-paracetamol',
@@ -157,6 +165,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
 
   const blockedByRevoke = await authorizeAndExecute({
     mandateId: groceries.id,
+    actorUserId: DEFAULT_USER_ID,
     action: { merchantId: 'zepto', itemId: 'zp-milk-2', category: 'groceries', amountPaise: 13_800 },
     requestId: 'groceries-after-revoke',
     execute: noPayment,
@@ -175,7 +184,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
   )
 
   // ---- 4. Combined exposure. ---------------------------------------------
-  const finalState = await loadMandateSummaries()
+  const finalState = await loadMandateSummaries(DEFAULT_USER_ID)
   const exposure = totalLiveExposurePaise(finalState)
   const expected = PHARMACY.totalCapPaise - 12_000
 
@@ -191,6 +200,59 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
     'one hash chain spans both mandates',
     chain.verified,
     chain.verified ? `${chain.entriesChecked} entries verified` : `broken at #${chain.brokenAtSeq}`,
+  )
+
+  // ---- 5. Tenancy. A mandate id is worthless in the wrong hands. ---------
+  //
+  // The engine bounds what an agent may spend. This bounds WHOSE authority a
+  // caller may spend at all, and it has to hold even when the id is known,
+  // because ids travel: they sit in URLs, in tool arguments, and in whatever an
+  // MCP client sends. So the check lives on the single money path, not only at
+  // the API edge.
+  const outsider = await createMandate('Someone else entirely', GROCERIES, 'second-user')
+
+  let refused = false
+  try {
+    await authorizeAndExecute({
+      mandateId: pharmacy.id,
+      actorUserId: 'second-user',
+      action: {
+        merchantId: 'medplus',
+        itemId: 'mp-paracetamol',
+        category: 'pharmacy',
+        amountPaise: 5_000,
+      },
+      requestId: 'cross-tenant-spend',
+      execute: noPayment,
+    })
+  } catch (err) {
+    refused = err instanceof MandateOwnershipError
+  }
+
+  console.log('\nTenancy')
+  check(
+    'a second person cannot spend a mandate that is not theirs',
+    refused,
+    refused ? 'refused before the engine ran' : 'THE SPEND WENT THROUGH',
+  )
+
+  const mineNow = await loadMandateSummaries(DEFAULT_USER_ID)
+  const theirsNow = await loadMandateSummaries('second-user')
+
+  check(
+    "neither person's list contains the other's mandates",
+    !mineNow.some((m) => m.id === outsider.id) &&
+      !theirsNow.some((m) => m.id === pharmacy.id || m.id === groceries.id),
+    `mine ${mineNow.length}, theirs ${theirsNow.length}, no overlap`,
+  )
+
+  const crossSpend = await prisma.decision.count({
+    where: { mandateId: pharmacy.id, requestedAction: { contains: 'cross-tenant-spend' } },
+  })
+  check(
+    'the refused attempt left nothing behind on the target mandate',
+    crossSpend === 0,
+    `${crossSpend} rows written against the other person's mandate`,
   )
 
   // Leave the database as we found it.

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { canonicalHash } from '@/lib/mandate/canonical'
 import { MandateRulesSchema, type ProposedAction } from '@/lib/mandate/schema'
 import { append } from '@/lib/ledger/append'
-import { authorizeAndExecute, loadLedgerState } from '@/lib/authorize'
+import { authorizeAndExecute, loadLedgerState, MandateOwnershipError } from '@/lib/authorize'
 import { AGENT_TOOLS, TOOL_NAMES } from './tools'
 import { buyerAgentSystemPrompt, wrapUntrusted, type PastPurchase } from './prompts'
 import type { CheckResult } from '@/lib/policy/engine'
@@ -87,6 +87,8 @@ export type AgentEvent =
 
 export interface RunAgentOptions {
   mandateId: string
+  /** Who the agent is acting for. Refused if the mandate is not theirs. */
+  actorUserId: string
   task: string
   model: ModelClient
   /** Seam so tests can run the full loop without touching Razorpay. */
@@ -99,6 +101,10 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   const now = opts.now ?? (() => new Date())
 
   const mandate = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
+  // Checked before a run is even created, so a mandate belonging to someone
+  // else leaves no trace of an attempt in their history.
+  if (mandate.userId !== opts.actorUserId) throw new MandateOwnershipError()
+
   const rules = MandateRulesSchema.parse(JSON.parse(mandate.rules))
 
   const run = await prisma.agentRun.create({
@@ -183,6 +189,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
           const outcome = yield* handlePurchase({
             use,
             mandateId,
+            actorUserId: opts.actorUserId,
             runId: run.id,
             now,
             execute: opts.executePurchase,
@@ -241,6 +248,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 async function* handlePurchase(args: {
   use: ToolUse
   mandateId: string
+  actorUserId: string
   runId: string
   now: () => Date
   execute?: (decisionId: string) => Promise<{ razorpayOrderId: string }>
@@ -248,7 +256,7 @@ async function* handlePurchase(args: {
   AgentEvent,
   { result: Anthropic.ToolResultBlockParam; authorized: boolean; seq: number }
 > {
-  const { use, mandateId, runId, now, execute } = args
+  const { use, mandateId, actorUserId, runId, now, execute } = args
 
   const action: ProposedAction = {
     merchantId: String(use.input.merchantId),
@@ -259,6 +267,7 @@ async function* handlePurchase(args: {
 
   const outcome = await authorizeAndExecute({
     mandateId,
+    actorUserId,
     action,
     // The same tool call retried is the same request. A different tool call for
     // the same item is a new purchase, which is why buying atta again next week

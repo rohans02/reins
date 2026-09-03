@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { currentUserId } from '@/lib/auth/session'
 import { loadLedgerState } from '@/lib/agent/loop'
 
 /**
@@ -16,8 +17,14 @@ import { loadLedgerState } from '@/lib/agent/loop'
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
+  const userId = await currentUserId()
+
+  // 404 rather than 403 for someone else's mandate: a different status code
+  // would tell an id-guesser which ids are real.
   const mandate = await prisma.mandate.findUnique({ where: { id } })
-  if (!mandate) return Response.json({ error: 'not_found' }, { status: 404 })
+  if (!mandate || mandate.userId !== userId) {
+    return Response.json({ error: 'not_found' }, { status: 404 })
+  }
 
   const ledger = await loadLedgerState(id)
   const rules = JSON.parse(mandate.rules) as Record<string, unknown>

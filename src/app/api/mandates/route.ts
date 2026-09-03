@@ -4,10 +4,15 @@ import { signMandate } from '@/lib/mandate/sign'
 import { MandateRulesSchema } from '@/lib/mandate/schema'
 import { append } from '@/lib/ledger/append'
 import { loadMandateSummaries } from '@/lib/mandates/summary'
+import { currentUserId } from '@/lib/auth/session'
 
-/** GET /api/mandates — every mandate, newest first. */
+/** GET /api/mandates — the CALLER'S mandates, newest first. Never anyone else's. */
 export async function GET() {
-  const mandates = await prisma.mandate.findMany({ orderBy: { createdAt: 'desc' } })
+  const userId = await currentUserId()
+  const mandates = await prisma.mandate.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  })
   return Response.json({
     mandates: mandates.map((m) => ({
       id: m.id,
@@ -71,8 +76,11 @@ export async function POST(request: Request) {
   // headroom from one another.
   const signature = signMandate(rules)
 
+  const userId = await currentUserId()
+
   const mandate = await prisma.mandate.create({
     data: {
+      userId,
       status: 'ACTIVE',
       intentText: body.intent ?? '',
       rules: canonical(rules),
@@ -97,7 +105,7 @@ export async function POST(request: Request) {
   // Signing no longer withdraws anything, so the response has to say what else
   // is still able to spend. A person who signs a second mandate should learn it
   // from the confirmation screen, not from a surprise on the ledger.
-  const others = await loadMandateSummaries()
+  const others = await loadMandateSummaries(userId)
   const alsoLive = others.filter((m) => m.live && m.id !== mandate.id).length
 
   return Response.json(

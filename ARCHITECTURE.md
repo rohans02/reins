@@ -235,6 +235,38 @@ chain could omit a decision and still verify, which would defeat the point of
 having one, so mandate is a filter over one sequence and never a sequence of its
 own.
 
+### Ownership is enforced, even though authentication is not built
+
+There is no login. There IS a tenancy boundary, and conflating the two would be
+the mistake. A login form answers "who are you". What actually protects a
+mandate is that every read is filtered by owner and every write checks ownership
+before doing anything, server-side, with no route that will hand over someone
+else's data for the asking.
+
+So `currentUserId()` is the entire missing auth layer. It reads a cookie today
+and a session tomorrow, and nothing else in the codebase changes, because
+nothing else asks the question.
+
+The check sits on the money path as well as at the API edge, deliberately. A
+mandate id is a bearer token if nothing verifies who is holding it, and ids
+travel: they sit in URLs, in tool arguments, and eventually in whatever an MCP
+client sends. `authorizeAndExecute` therefore refuses a mandate that is not the
+actor's, and refuses BEFORE the engine runs, because a mandate that is not yours
+is not a policy question.
+
+Cross-tenant access answers 404 rather than 403. A distinct status code would
+confirm to anyone guessing ids which of them are real.
+
+The ledger splits reading from verifying. You see only your own decisions, and
+integrity is still checked over the WHOLE chain, everyone's rows included,
+because prevHash links every row regardless of owner. A chain covering only your
+rows could have another row lifted out from between two of them and still
+verify.
+
+`npm run smoke:mandates` proves the boundary rather than asserting it: a second
+person cannot spend a mandate that is not theirs, neither person's list contains
+the other's, and the refused attempt leaves nothing behind on the target.
+
 ### The agent says what it intends to buy before it proposes anything
 
 `announce_plan` is a fourth tool that writes nothing, authorizes nothing and

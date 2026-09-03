@@ -15,6 +15,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { UserSwitcher, type DemoUser } from '@/components/UserSwitcher'
+import { DEMO_USERS } from '@/lib/auth/users'
 import { formatINR } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
@@ -64,9 +66,12 @@ const ICON_BUTTON =
 export function Sidebar({
   authority,
   dark,
+  user,
 }: {
   authority: SidebarAuthority
   dark: boolean
+  /** Who the app is acting as. No login yet, so this is a demo identity. */
+  user: DemoUser
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -101,6 +106,9 @@ export function Sidebar({
           {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </button>
       </div>
+
+      {/* Whose mandates are on screen. Everything below is scoped to them. */}
+      <UserSwitcher user={user} users={DEMO_USERS} collapsed={collapsed} />
 
       {/* Live authority — how much could be spent right now, in total? */}
       <AuthorityStatus authority={authority} collapsed={collapsed} />

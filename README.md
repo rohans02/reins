@@ -65,7 +65,7 @@ Then open <http://localhost:3000>, create a mandate, and run the agent.
 | `npm run eval` | Adversarial suite, prints the metrics table |
 | `npm run smoke:phase1` | sign → evaluate → append → verify → tamper → detected |
 | `npm run smoke:phase2` | scripted agent → policy gate → real Razorpay orders → webhook → revoke |
-| `npm run smoke:mandates` | Two live mandates, and proof that neither can spend the other's budget |
+| `npm run smoke:mandates` | Two live mandates, neither able to spend the other's budget, and a second person refused |
 | `npm run smoke:razorpay` | Confirms the Orders API works with your test keys |
 | `npm run db:reset` | Wipe and reseed. Stop `npm run dev` first, it holds the database file |
 
@@ -160,7 +160,14 @@ live model.
   verification path. The event is synthetic. The verification is not.
 - **The catalog is a fixture.** 12 SKUs across 4 merchants in `prisma/seed.ts`. Catalog
   ingestion is out of scope.
-- **No authentication.** Single-tenant prototype with a hardcoded demo user.
+- **No authentication, but the tenancy boundary is real.** There is no login. What
+  is not missing is the enforcement: every read is filtered by owner and every write
+  checks ownership server-side, in `authorizeAndExecute`, in `runAgent` and in every
+  route under `/api/mandates`. Another person's mandate id answers 404 on read, on
+  revoke and on agent run, and it is refused on the money path before the engine even
+  runs. The whole of the missing auth layer is `currentUserId()` in
+  `src/lib/auth/session.ts`. A sidebar switcher lets you change person and watch the
+  isolation hold. Prove it with `npm run smoke:mandates`.
 - **The adversarial cases are self-authored.** They are published in
   `src/lib/eval/cases.ts`, reproducible with one command, reported per category rather than
   as one number, and include legitimate purchases as well as refusals. They are still not an

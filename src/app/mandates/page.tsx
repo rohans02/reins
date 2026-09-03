@@ -1,3 +1,4 @@
+import { currentUserId } from '@/lib/auth/session'
 import {
   loadMandateSummaries,
   remainingPaise,
@@ -15,7 +16,7 @@ import { MandateManager, type ManagedMandate } from '@/components/MandateManager
 export const dynamic = 'force-dynamic'
 
 export default async function MandatesPage() {
-  const summaries = await loadMandateSummaries()
+  const summaries = await loadMandateSummaries(await currentUserId())
 
   const mandates: ManagedMandate[] = summaries.map((m) => ({
     id: m.id,

@@ -3,6 +3,7 @@ import { prisma } from '../src/lib/db'
 import { canonical } from '../src/lib/mandate/canonical'
 import { signMandate } from '../src/lib/mandate/sign'
 import type { MandateRules } from '../src/lib/mandate/schema'
+import { DEFAULT_USER_ID } from '../src/lib/auth/users'
 import { runAgent } from '../src/lib/agent/loop'
 import { scriptedModel } from '../src/lib/agent/model'
 import { verifyChain } from '../src/lib/ledger/verify'
@@ -67,6 +68,7 @@ async function main() {
 
   for await (const ev of runAgent({
     mandateId: mandate.id,
+    actorUserId: DEFAULT_USER_ID,
     task: 'Restock my pantry for the week.',
     model: scriptedModel(SCRIPT),
   })) {
@@ -122,6 +124,7 @@ async function main() {
   let revokedBlocked = false
   for await (const ev of runAgent({
     mandateId: mandate.id,
+    actorUserId: DEFAULT_USER_ID,
     task: 'Buy more bread.',
     model: scriptedModel([
       { toolCalls: [{ name: 'request_purchase', input: { merchantId: 'zepto', itemId: 'zp-bread-1', category: 'groceries', amountPaise: 5_500 } }] },

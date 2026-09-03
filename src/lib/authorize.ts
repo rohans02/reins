@@ -23,10 +23,30 @@ import { executePayment } from '@/lib/razorpay/execute'
  *
  * The engine is still not reachable from the network. A caller may reach THIS
  * function, and this function always runs the engine. Nothing skips it.
+ *
+ * OWNERSHIP is checked here as well as at the API edge, on purpose. A mandate id
+ * is a bearer token if nothing verifies who is holding it, and ids travel: they
+ * sit in URLs, in tool arguments, and eventually in whatever an MCP client sends
+ * us. So the single money path refuses a mandate that does not belong to the
+ * actor, and it refuses BEFORE the engine runs, because a mandate that is not
+ * yours is not a policy question. It is not yours.
  */
+
+/** Raised when an actor references a mandate that is not theirs. */
+export class MandateOwnershipError extends Error {
+  constructor() {
+    // Deliberately says nothing about whether the id exists. Distinguishing
+    // "not yours" from "no such mandate" would confirm the existence of other
+    // people's mandates to anyone willing to guess ids.
+    super('No such mandate')
+    this.name = 'MandateOwnershipError'
+  }
+}
 
 export interface AuthorizeRequest {
   mandateId: string
+  /** Who is spending. Required: a caller must never be able to omit it. */
+  actorUserId: string
   action: ProposedAction
   /**
    * Stable identifier for this request. The same id retried is treated as a
@@ -63,6 +83,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
   // which is what makes revocation take effect on the very next action rather
   // than at the end of a run.
   const mandate = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
+  if (mandate.userId !== req.actorUserId) throw new MandateOwnershipError()
+
   const rules = MandateRulesSchema.parse(JSON.parse(mandate.rules))
   const ledger = await loadLedgerState(mandateId)
 
@@ -138,6 +160,9 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
  * reserve against the cap the moment we authorize.
  */
 export async function loadLedgerState(mandateId: string): Promise<LedgerState> {
+  // Not owner-scoped, and it must not be: this is the spend the ENGINE enforces
+  // against for one specific mandate, and it has to be complete regardless of
+  // who is asking. Ownership is settled before this is ever reached.
   const decisions = await prisma.decision.findMany({
     where: { mandateId },
     select: {

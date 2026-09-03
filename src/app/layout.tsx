@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { currentUserId, userName } from '@/lib/auth/session'
 import { loadMandateSummaries, totalLiveExposurePaise } from '@/lib/mandates/summary'
 import { Sidebar } from '@/components/Sidebar'
 import { Toaster } from '@/components/ui/sonner'
@@ -29,7 +30,8 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // concurrent mandates the newest understates what an agent could spend, and a
   // sidebar that quietly under-reports exposure is worse than one showing
   // nothing at all.
-  const summaries = await loadMandateSummaries()
+  const userId = await currentUserId()
+  const summaries = await loadMandateSummaries(userId)
   const live = summaries.filter((m) => m.live)
 
   return (
@@ -41,6 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <div className="flex h-screen">
           <Sidebar
             dark={dark}
+            user={{ id: userId, name: userName(userId) }}
             authority={{
               liveCount: live.length,
               everSigned: summaries.length,

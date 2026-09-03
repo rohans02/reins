@@ -22,6 +22,12 @@ import { MandateRulesSchema, type MandateRules } from '@/lib/mandate/schema'
  * Spend is read from the LEDGER, not from `Mandate.spentPaise`. The column
  * tracks settled payments and lags behind by a webhook. Authority is consumed
  * the moment a purchase is authorized, so that is what has to be counted.
+ *
+ * EVERY read here is scoped to one owner. A mandate is spending authority over
+ * someone's money, so "list the mandates" is never a question that can be
+ * answered globally — the caller has to say whose. The userId is required
+ * rather than defaulted precisely so a future caller cannot forget it and
+ * silently get everybody's.
  */
 
 export interface MandateSummary {
@@ -55,11 +61,16 @@ export function remainingPaise(m: MandateSummary): number {
  * read per mandate. The manager lists all of them at once and an N+1 there
  * would be felt.
  */
-export async function loadMandateSummaries(now: Date = new Date()): Promise<MandateSummary[]> {
+export async function loadMandateSummaries(
+  userId: string,
+  now: Date = new Date(),
+): Promise<MandateSummary[]> {
   const [mandates, decisions] = await Promise.all([
-    prisma.mandate.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.mandate.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
     prisma.decision.findMany({
-      where: { action: 'PURCHASE', verdict: 'ALLOW' },
+      // Scoped through the mandate, so one person's spend can never be counted
+      // against another's cap or appear in their totals.
+      where: { action: 'PURCHASE', verdict: 'ALLOW', mandate: { userId } },
       select: { mandateId: true, requestedAction: true },
     }),
   ])

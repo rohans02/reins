@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/db'
+import { currentUserId } from '@/lib/auth/session'
 import { runAgent } from '@/lib/agent/loop'
 import { selectModel } from '@/lib/agent/select'
 
@@ -19,6 +21,18 @@ export async function POST(request: Request) {
     return Response.json({ error: 'mandateId and task are required' }, { status: 400 })
   }
 
+  // Ownership is settled BEFORE the stream opens. Refusing mid-stream would
+  // mean a run row already existed against somebody else's mandate, and the
+  // error would arrive as an SSE event rather than an HTTP status.
+  const actorUserId = await currentUserId()
+  const mandate = await prisma.mandate.findUnique({
+    where: { id: mandateId },
+    select: { userId: true },
+  })
+  if (!mandate || mandate.userId !== actorUserId) {
+    return Response.json({ error: 'not_found' }, { status: 404 })
+  }
+
   const { model, scripted } = selectModel()
   const encoder = new TextEncoder()
 
@@ -29,7 +43,7 @@ export async function POST(request: Request) {
 
       try {
         send({ type: 'mode', scripted })
-        for await (const event of runAgent({ mandateId, task, model })) send(event)
+        for await (const event of runAgent({ mandateId, actorUserId, task, model })) send(event)
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : String(err) })
       } finally {

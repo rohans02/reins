@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { currentUserId } from '@/lib/auth/session'
 import { canonicalHash } from '@/lib/mandate/canonical'
 import { append } from '@/lib/ledger/append'
 
@@ -12,12 +13,21 @@ import { append } from '@/lib/ledger/append'
  *
  * Already-revoked is not an error — the button should be safe to hit twice, and
  * on stage it will be.
+ *
+ * Revoking somebody else's mandate answers 404, the same as an id that does not
+ * exist. Saying "not yours" instead would confirm that the mandate is real to
+ * anyone guessing ids, and a kill switch someone else can reach is its own
+ * denial-of-service.
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
+  const userId = await currentUserId()
+
   const mandate = await prisma.mandate.findUnique({ where: { id } })
-  if (!mandate) return Response.json({ error: 'not_found' }, { status: 404 })
+  if (!mandate || mandate.userId !== userId) {
+    return Response.json({ error: 'not_found' }, { status: 404 })
+  }
 
   if (mandate.status === 'REVOKED') {
     return Response.json({ status: 'REVOKED', alreadyRevoked: true })

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { currentUserId } from '@/lib/auth/session'
 import { verifyChain } from '@/lib/ledger/verify'
 import { LedgerTable, type LedgerRow } from '@/components/LedgerTable'
 
@@ -8,12 +9,20 @@ import { LedgerTable, type LedgerRow } from '@/components/LedgerTable'
  * Server-rendered so the integrity check runs on request and arrives with the
  * page. No AI and no Razorpay on this screen, deliberately: it exists to be
  * checkable, so nothing on it may be probabilistic.
+ *
+ * You see YOUR decisions. Integrity is verified over the WHOLE chain, everyone's
+ * rows included, because prevHash links every row regardless of owner. Reading
+ * is scoped, verification is not — a chain covering only your own rows could
+ * have another row lifted out from between two of them and still verify.
  */
 export const dynamic = 'force-dynamic'
 
 export default async function LedgerPage() {
+  const userId = await currentUserId()
+
   const [decisions, chain] = await Promise.all([
     prisma.decision.findMany({
+      where: { mandate: { userId } },
       orderBy: { seq: 'desc' },
       include: { transaction: true, mandate: { select: { intentText: true } } },
       take: 200,
