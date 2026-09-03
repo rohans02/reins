@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { formatINR } from '@/lib/money'
+import { formatINR, rupeesToPaise } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 /**
@@ -140,12 +140,12 @@ export default function NewMandatePage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Mandate Studio</h1>
         <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-          Say what the agent may spend. You approve it once; after that it acts on its own, inside
+          Say what the agent may spend. You approve it once. After that it buys on its own, inside
           these bounds and nowhere else.
         </p>
       </header>
 
-      <Step n={1} title="State the intent" hint="Plain language. The model drafts; it never grants.">
+      <Step n={1} title="State the intent" hint="Write it however you would say it. The model only drafts. It never grants anything.">
         <Textarea
           value={intent}
           onChange={(e) => setIntent(e.target.value)}
@@ -169,7 +169,7 @@ export default function NewMandatePage() {
         </div>
       </Step>
 
-      <Step n={2} title="Review the bounds" hint="Editable until the moment you sign.">
+      <Step n={2} title="Review the bounds" hint="You can change any of this right up until you sign.">
         <div className="rounded-lg border border-border bg-card p-5 space-y-4">
           <Field label="Merchants allowed">
             <Input
@@ -198,19 +198,26 @@ export default function NewMandatePage() {
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label={`Per order — ${formatINR(rules.perTxnCapPaise)}`}>
+            {/* Rupees at the edge, paise underneath. Typing 80000 to mean ₹800 is
+                a bad ask, but floats in the core is how money goes missing, so the
+                conversion happens here and nowhere deeper. */}
+            <Field label="Per order (₹)">
               <Input
                 type="number"
-                value={rules.perTxnCapPaise}
-                onChange={(e) => setRules({ ...rules, perTxnCapPaise: Number(e.target.value) })}
+                value={rules.perTxnCapPaise / 100}
+                onChange={(e) =>
+                  setRules({ ...rules, perTxnCapPaise: rupeesToPaise(Number(e.target.value)) })
+                }
                 className="font-mono text-sm tabular-nums"
               />
             </Field>
-            <Field label={`Total cap — ${formatINR(rules.totalCapPaise)}`}>
+            <Field label="Total cap (₹)">
               <Input
                 type="number"
-                value={rules.totalCapPaise}
-                onChange={(e) => setRules({ ...rules, totalCapPaise: Number(e.target.value) })}
+                value={rules.totalCapPaise / 100}
+                onChange={(e) =>
+                  setRules({ ...rules, totalCapPaise: rupeesToPaise(Number(e.target.value)) })
+                }
                 className="font-mono text-sm tabular-nums"
               />
             </Field>
@@ -273,7 +280,7 @@ function Signed({
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Mandate signed</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Authority is now in force. The agent can act inside these bounds and nowhere else.
+              The agent can now buy inside these bounds, and nowhere else.
             </p>
           </div>
           <span className="ml-auto rounded-full bg-emerald-600/15 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
@@ -283,8 +290,8 @@ function Signed({
 
         {superseded > 0 && (
           <p className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
-            Replaced {superseded} previously active {superseded === 1 ? 'mandate' : 'mandates'}. Only one
-            mandate can be active at a time, so the older authority is now dead.
+            Replaced {superseded} active {superseded === 1 ? 'mandate' : 'mandates'}. Only one mandate can be
+            active at a time, so the older one can no longer spend anything.
           </p>
         )}
 
