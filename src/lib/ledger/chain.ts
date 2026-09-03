@@ -30,7 +30,8 @@ export interface LedgerDigest {
   reasonCodes: string[]
   mandateSnapshotHash: string
   idempotencyKey: string
-  latencyMs: number
+  /** Microseconds. */
+  latencyUs: number
   /** ISO-8601. Set explicitly by the writer, never left to a DB default. */
   createdAt: string
 }

@@ -26,7 +26,7 @@ interface Row {
   verdict: string
   reasonCodes: string[]
   requestedAction: { itemId?: string; merchantId?: string; amountPaise?: number }
-  latencyMs: number
+  latencyUs: number
   hash: string
   razorpayOrderId: string | null
 }

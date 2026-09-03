@@ -79,7 +79,9 @@ model Decision {
   // execution is prevented by the engine (DUPLICATE_REQUEST) and hard-stopped by
   // Transaction.decisionId being unique.
   idempotencyKey      String
-  latencyMs           Int
+  // MICROseconds. Authorization is sub-millisecond, so an Int of ms stored 0
+  // for every decision and the ledger latency column was dead.
+  latencyUs           Int
   prevHash            String
   hash                String // sha256(prevHash + canonical(row))
   createdAt           DateTime  @default(now())

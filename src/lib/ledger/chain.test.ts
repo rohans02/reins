@@ -18,7 +18,7 @@ function digest(overrides: Partial<LedgerDigest> = {}): LedgerDigest {
     reasonCodes: [],
     mandateSnapshotHash: 'a'.repeat(64),
     idempotencyKey: 'idem-1',
-    latencyMs: 3,
+    latencyUs: 3000,
     createdAt: '2026-09-02T10:00:00.000Z',
     ...overrides,
   }

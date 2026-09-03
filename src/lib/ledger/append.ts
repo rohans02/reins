@@ -70,9 +70,10 @@ async function appendSerialized(entry: LedgerEntry): Promise<{ seq: number; hash
     reasonCodes: entry.reasonCodes,
     mandateSnapshotHash: entry.mandateSnapshotHash,
     idempotencyKey: entry.idempotencyKey,
-    // Stored as an Int, so round before hashing — the hash must be computed over
-    // the value that actually lands in the row, not the pre-rounded float.
-    latencyMs: Math.round(entry.latencyMs),
+    // The engine reports milliseconds as a float; storage is integer
+    // microseconds. Convert before hashing, so the hash covers the value that
+    // actually lands in the row.
+    latencyUs: Math.round(entry.latencyMs * 1000),
     createdAt: createdAt.toISOString(),
   }
 
@@ -90,7 +91,7 @@ async function appendSerialized(entry: LedgerEntry): Promise<{ seq: number; hash
       explanation: entry.explanation ?? null,
       mandateSnapshotHash: digest.mandateSnapshotHash,
       idempotencyKey: digest.idempotencyKey,
-      latencyMs: digest.latencyMs,
+      latencyUs: digest.latencyUs,
       prevHash,
       hash,
       createdAt,

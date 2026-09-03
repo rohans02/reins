@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       reasonCodes: JSON.parse(r.reasonCodes) as string[],
       explanation: r.explanation,
       requestedAction: JSON.parse(r.requestedAction) as Record<string, unknown>,
-      latencyMs: r.latencyMs,
+      latencyUs: r.latencyUs,
       hash: r.hash,
       razorpayOrderId: r.transaction?.razorpayOrderId ?? null,
     })),

@@ -31,7 +31,7 @@ export interface LedgerRow {
   reasonCodes: string[]
   explanation: string | null
   requestedAction: { itemId?: string; amountPaise?: number; merchantId?: string }
-  latencyMs: number
+  latencyUs: number
   hash: string
   razorpayOrderId: string | null
 }
@@ -142,7 +142,7 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
                     {r.requestedAction.amountPaise ? formatINR(r.requestedAction.amountPaise) : '—'}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                    {r.latencyMs}ms
+                    {r.latencyUs}µs
                   </TableCell>
                   <TableCell className="font-mono text-[10px] text-muted-foreground">
                     {r.hash.slice(0, 8)}

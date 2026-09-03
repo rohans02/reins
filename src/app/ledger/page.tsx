@@ -25,7 +25,7 @@ export default async function LedgerPage() {
     reasonCodes: JSON.parse(r.reasonCodes) as string[],
     explanation: r.explanation,
     requestedAction: JSON.parse(r.requestedAction) as LedgerRow['requestedAction'],
-    latencyMs: r.latencyMs,
+    latencyUs: r.latencyUs,
     hash: r.hash,
     razorpayOrderId: r.transaction?.razorpayOrderId ?? null,
   }))

@@ -35,7 +35,7 @@ export async function verifyChain(): Promise<ChainVerification> {
       reasonCodes: JSON.parse(row.reasonCodes) as string[],
       mandateSnapshotHash: row.mandateSnapshotHash,
       idempotencyKey: row.idempotencyKey,
-      latencyMs: row.latencyMs,
+      latencyUs: row.latencyUs,
       createdAt: row.createdAt.toISOString(),
     }
 
