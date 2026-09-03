@@ -23,23 +23,28 @@ import { LedgerSlideOver } from '@/components/LedgerSlideOver'
  *
  * No navigation is required at any point in the demo.
  */
-export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
+export function ConsoleClient({
+  mandate,
+  initialRows,
+}: {
+  mandate: MandateView | null
+  /** Verdict history rebuilt from the ledger, so a reload keeps the evidence. */
+  initialRows: FeedRow[]
+}) {
   const router = useRouter()
 
   const [running, setRunning] = useState(false)
   const [task, setTask] = useState('Restock my pantry for the week.')
-  const [rows, setRows] = useState<FeedRow[]>([])
+  const [liveRows, setLiveRows] = useState<FeedRow[]>([])
   const [scripted, setScripted] = useState(false)
   // Optimistic spend during a run; the server value catches up on refresh.
   const [delta, setDelta] = useState(0)
-  const [allowed, setAllowed] = useState<number[]>([])
 
   async function runAgent() {
     if (!mandate) return
     setRunning(true)
-    setRows([])
+    setLiveRows([])
     setDelta(0)
-    setAllowed([])
 
     try {
       const res = await fetch('/api/agent/run', {
@@ -85,14 +90,14 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
         break
 
       case 'text':
-        setRows((r) => [...r, { kind: 'say', id, text: String(ev.text) }])
+        setLiveRows((r) => [...r, { kind: 'say', id, text: String(ev.text) }])
         break
 
       case 'tool_call':
         // request_purchase is represented by its verdict row instead — showing
         // both would say the same thing twice, right where attention matters.
         if (ev.name === 'request_purchase') break
-        setRows((r) => [
+        setLiveRows((r) => [
           ...r,
           { kind: 'tool', id, name: String(ev.name), input: ev.input as Record<string, unknown> },
         ])
@@ -101,7 +106,7 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
       case 'decision': {
         const amountPaise = Number(ev.amountPaise)
         const verdict = String(ev.verdict)
-        setRows((r) => [
+        setLiveRows((r) => [
           ...r,
           {
             kind: 'verdict',
@@ -112,19 +117,18 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
             merchantId: String(ev.merchantId),
             itemId: String(ev.itemId),
             amountPaise,
-            latencyMs: Number(ev.latencyMs),
+            latencyUs: Math.round(Number(ev.latencyMs) * 1000),
           },
         ])
 
         if (verdict === 'ALLOW') {
           setDelta((x) => x + amountPaise)
-          setAllowed((a) => [...a, (a.at(-1) ?? 0) + amountPaise])
         }
         break
       }
 
       case 'purchase':
-        setRows((r) => {
+        setLiveRows((r) => {
           const next = [...r]
           for (let i = next.length - 1; i >= 0; i--) {
             const row = next[i]
@@ -138,14 +142,14 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
         break
 
       case 'error':
-        setRows((r) => [
+        setLiveRows((r) => [
           ...r,
           { kind: 'system', id, text: `error: ${String(ev.message)}`, tone: 'bad' },
         ])
         break
 
       case 'done':
-        setRows((r) => [
+        setLiveRows((r) => [
           ...r,
           {
             kind: 'system',
@@ -156,6 +160,14 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
         break
     }
   }
+
+  const liveSeqs = new Set(
+    liveRows.flatMap((r) => (r.kind === 'verdict' ? [r.seq] : [])),
+  )
+  const rows: FeedRow[] = [
+    ...initialRows.filter((r) => r.kind !== 'verdict' || !liveSeqs.has(r.seq)),
+    ...liveRows,
+  ]
 
   async function revoke() {
     if (!mandate) return
@@ -200,7 +212,6 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
           <MandatePanel
             mandate={mandate}
             delta={delta}
-            segments={allowed}
             onRevoke={revoke}
           />
         </div>

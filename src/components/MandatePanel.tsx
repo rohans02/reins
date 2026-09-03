@@ -47,12 +47,10 @@ export interface MandateView {
 export function MandatePanel({
   mandate,
   delta,
-  segments,
   onRevoke,
 }: {
   mandate: MandateView
   delta: number
-  segments: number[]
   onRevoke: () => void
 }) {
   const revoked = mandate.status === 'REVOKED'
@@ -87,7 +85,6 @@ export function MandatePanel({
         <SpendMeter
           authorizedPaise={authorized}
           totalCapPaise={mandate.totalCapPaise}
-          segments={segments}
           revoked={revoked}
         />
 
