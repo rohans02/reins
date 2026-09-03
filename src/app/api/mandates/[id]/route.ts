@@ -18,6 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
 
   const userId = await currentUserId()
+  if (!userId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
 
   // 404 rather than 403 for someone else's mandate: a different status code
   // would tell an id-guesser which ids are real.

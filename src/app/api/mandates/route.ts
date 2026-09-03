@@ -9,6 +9,8 @@ import { currentUserId } from '@/lib/auth/session'
 /** GET /api/mandates — the CALLER'S mandates, newest first. Never anyone else's. */
 export async function GET() {
   const userId = await currentUserId()
+  if (!userId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
+
   const mandates = await prisma.mandate.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
   const signature = signMandate(rules)
 
   const userId = await currentUserId()
+  if (!userId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
 
   const mandate = await prisma.mandate.create({
     data: {

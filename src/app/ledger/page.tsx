@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { currentUserId } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/guard'
 import { verifyChain } from '@/lib/ledger/verify'
 import { LedgerTable, type LedgerRow } from '@/components/LedgerTable'
 
@@ -18,7 +18,7 @@ import { LedgerTable, type LedgerRow } from '@/components/LedgerTable'
 export const dynamic = 'force-dynamic'
 
 export default async function LedgerPage() {
-  const userId = await currentUserId()
+  const { id: userId } = await requireActor()
 
   const [decisions, chain] = await Promise.all([
     prisma.decision.findMany({

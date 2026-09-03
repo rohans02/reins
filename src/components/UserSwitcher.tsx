@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useTransition, type ReactNode } from 'react'
 import { COOKIE_NAME } from '@/lib/auth/users'
 import { cn } from '@/lib/utils'
 
@@ -34,16 +34,23 @@ function rememberUser(id: string) {
 export interface DemoUser {
   id: string
   name: string
+  authenticated?: boolean
 }
 
 export function UserSwitcher({
   user,
   users,
   collapsed,
+  authEnabled,
+  signOut,
 }: {
   user: DemoUser
   users: DemoUser[]
   collapsed: boolean
+  /** True when OAuth is configured, so the identity is proven rather than set. */
+  authEnabled: boolean
+  /** Server Component holding the sign-out action, or null when there is none. */
+  signOut: ReactNode
 }) {
   const router = useRouter()
   const [busy, startSwitch] = useTransition()
@@ -64,7 +71,7 @@ export function UserSwitcher({
     return (
       <div className="flex justify-center py-3 border-b border-border">
         <span
-          title={`Signed in as ${user.name} (demo)`}
+          title={authEnabled ? `Signed in as ${user.name}` : `${user.name} (demo identity)`}
           className="flex size-7 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold"
         >
           {initial}
@@ -81,28 +88,35 @@ export function UserSwitcher({
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium truncate">{user.name}</div>
-          <div className="text-[10px] text-muted-foreground truncate">no login, demo identity</div>
+          <div className="text-[10px] text-muted-foreground truncate">
+            {authEnabled ? 'signed in' : 'no login, demo identity'}
+          </div>
         </div>
+        {authEnabled && signOut}
       </div>
 
-      <div className={cn('flex gap-1', busy && 'opacity-50')}>
-        {users.map((u) => (
-          <button
-            key={u.id}
-            onClick={() => switchTo(u.id)}
-            disabled={busy}
-            title={`View as ${u.name}`}
-            className={cn(
-              'flex-1 rounded-md px-2 py-1 text-[10px] transition-colors',
-              u.id === user.id
-                ? 'bg-accent text-accent-foreground font-medium'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-            )}
-          >
-            {u.name}
-          </button>
-        ))}
-      </div>
+      {/* The switcher only makes sense when identity is asserted. Once it is
+          proven, offering to become someone else would be a lie. */}
+      {!authEnabled && (
+        <div className={cn('flex gap-1', busy && 'opacity-50')}>
+          {users.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => switchTo(u.id)}
+              disabled={busy}
+              title={`View as ${u.name}`}
+              className={cn(
+                'flex-1 rounded-md px-2 py-1 text-[10px] transition-colors',
+                u.id === user.id
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+              )}
+            >
+              {u.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

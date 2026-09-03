@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import type { TranscriptEntry } from '@/lib/agent/loop'
-import { currentUserId } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/guard'
 import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { ConsoleClient } from '@/components/ConsoleClient'
 import type { FeedRow } from '@/components/ActivityFeed'
@@ -29,7 +29,8 @@ export default async function ConsolePage({
   const requested = (await searchParams).mandate
   // Scoped to the caller, so `?mandate=` naming someone else's id resolves to
   // nothing and falls back to their own rather than rendering it.
-  const summaries = await loadMandateSummaries(await currentUserId())
+  const actor = await requireActor()
+  const summaries = await loadMandateSummaries(actor.id)
   const mandate = pickMandate(summaries, typeof requested === 'string' ? requested : undefined)
 
   // Only live mandates can be switched to, because a run started against a

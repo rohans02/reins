@@ -23,6 +23,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id } = await params
 
   const userId = await currentUserId()
+  if (!userId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
 
   const mandate = await prisma.mandate.findUnique({ where: { id } })
   if (!mandate || mandate.userId !== userId) {

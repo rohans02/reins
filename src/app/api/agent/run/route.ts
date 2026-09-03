@@ -25,6 +25,8 @@ export async function POST(request: Request) {
   // mean a run row already existed against somebody else's mandate, and the
   // error would arrive as an SSE event rather than an HTTP status.
   const actorUserId = await currentUserId()
+  if (!actorUserId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
+
   const mandate = await prisma.mandate.findUnique({
     where: { id: mandateId },
     select: { userId: true },

@@ -1,47 +1,74 @@
 import 'server-only'
 import { cookies } from 'next/headers'
-import { COOKIE_NAME, DEFAULT_USER_ID, isKnownUser } from '@/lib/auth/users'
+import { auth } from '@/lib/auth/authjs'
+import { authEnabled } from '@/lib/auth/providers'
+import { COOKIE_NAME, DEFAULT_USER_ID, isKnownUser, userName } from '@/lib/auth/users'
 
 /**
  * ============================================================================
- *  WHO IS ASKING — the one seam between this prototype and real authentication.
+ *  WHO IS ASKING — the single place the application answers that question.
  * ============================================================================
  *
- * There is no login here, and that is a deliberate, stated limitation. What is
- * NOT missing is the tenancy boundary, and the difference matters.
+ * Every owner-scoped query and every ownership check goes through here, which
+ * is what made real authentication a small change rather than a rewrite: the
+ * enforcement was already in place and already keyed on this function's answer.
  *
- * A login form only answers "who are you". The part that actually protects a
- * mandate is that every read is filtered by owner and every write checks
- * ownership before it does anything, server-side, with no route that can be
- * asked nicely for someone else's data. That work is done. It is enforced in
- * `authorizeAndExecute`, in `runAgent`, in `loadMandateSummaries`, and in every
- * route under /api/mandates.
+ * TWO MODES, and the difference between them is narrow and worth being precise
+ * about.
  *
- * So the whole of the missing auth layer is this function. Replace it with a
- * session lookup and nothing else in the codebase changes, because nothing else
- * asks the question.
+ *   OAuth configured   the id comes from a signed session cookie that a person
+ *                      obtained by proving control of a GitHub or Google
+ *                      account. Unauthenticated requests get NOTHING.
+ *   nothing configured  the id comes from a plain cookie anyone can set. This
+ *                      is an asserted identity, not a proven one.
  *
- * The cookie is a DEMO INSTRUMENT, in the same spirit as FORCE_ATTEMPT: it
- * exists so the isolation can be demonstrated rather than asserted. Switch
- * user, and the other person's mandates are gone from every screen and their
- * ids stop resolving. It is obviously not a security boundary on its own, since
- * anyone can set a cookie. Neither is a username without a password, which is
- * exactly why the real fix is a session and not more code out here.
+ * What does NOT differ is enforcement. Both modes return an id, and every read
+ * is filtered by it and every write is checked against it either way. The
+ * second mode exists so that a judge cloning this repo, with no OAuth app of
+ * their own, can still open the product — the same reason the agent falls back
+ * to a scripted model with no API key.
  *
- * `server-only` is imported so that a client component importing this fails at
- * BUILD time rather than at request time. It already happened once: the sidebar
- * pulled this module in for the user list and every route started answering 500.
+ * The fallback is announced in the UI rather than hidden, because an identity
+ * that was asserted must never look like one that was proven.
  */
 
 export { DEFAULT_USER_ID, COOKIE_NAME, DEMO_USERS, isKnownUser, userName } from '@/lib/auth/users'
+export { authEnabled, configuredProviders } from '@/lib/auth/providers'
+
+export interface Actor {
+  id: string
+  name: string
+  /** True when the identity was proven by OAuth rather than merely asserted. */
+  authenticated: boolean
+}
 
 /**
- * The current actor. Every scoped query and every ownership check goes through
- * this, so there is exactly one place that decides who is asking.
+ * The current actor, or null when sign-in is required and has not happened.
+ *
+ * Returning null rather than falling back is the whole point once auth is on. A
+ * fallback here would mean an unauthenticated request quietly became somebody,
+ * and every ownership check downstream would then pass for that somebody.
  */
-export async function currentUserId(): Promise<string> {
+export async function currentActor(): Promise<Actor | null> {
+  if (authEnabled()) {
+    const session = await auth()
+    const id = session?.user?.mandateUserId
+    if (!id) return null
+    return {
+      id,
+      name: session.user.displayName ?? session.user.name ?? 'Signed in',
+      authenticated: true,
+    }
+  }
+
   const raw = (await cookies()).get(COOKIE_NAME)?.value
-  // An unknown id falls back rather than being trusted. Otherwise a made-up
-  // cookie value would create an empty tenant on demand.
-  return raw && isKnownUser(raw) ? raw : DEFAULT_USER_ID
+  // An unknown id falls back rather than being trusted, so a made-up cookie
+  // value cannot conjure an empty tenant on demand.
+  const id = raw && isKnownUser(raw) ? raw : DEFAULT_USER_ID
+  return { id, name: userName(id), authenticated: false }
+}
+
+/** Convenience for the many callers that only need the id. */
+export async function currentUserId(): Promise<string | null> {
+  return (await currentActor())?.id ?? null
 }

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { currentUserId } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/guard'
 import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { CatalogView, type CatalogMerchant } from '@/components/CatalogView'
 
@@ -21,7 +21,7 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalog'
       include: { items: { orderBy: { pricePaise: 'asc' } } },
       orderBy: { id: 'asc' },
     }),
-    currentUserId().then(loadMandateSummaries),
+    requireActor().then((a) => loadMandateSummaries(a.id)),
   ])
 
   // Allowed and over-cap are properties of ONE mandate, not of the catalog, and

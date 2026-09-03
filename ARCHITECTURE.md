@@ -235,7 +235,37 @@ chain could omit a decision and still verify, which would defeat the point of
 having one, so mandate is a filter over one sequence and never a sequence of its
 own.
 
-### Ownership is enforced, even though authentication is not built
+### Authentication is optional. Ownership never is
+
+Sign-in is GitHub or Google OAuth through Auth.js, and it activates only when a
+provider's credentials are present. With none set the app runs on two demo
+identities and says so on screen.
+
+That is the same shape as the model client, and for the same reason: someone
+cloning this repo has no OAuth app of their own, and a login wall they cannot
+pass would make the project unopenable. The fallback is not a weaker mode. Both
+paths return an id from `currentUserId()`, and every query is filtered by
+whatever it returns, so enforcement is byte-for-byte identical. What differs is
+whether the identity was PROVEN or merely ASSERTED, which is why the sidebar
+labels it rather than hiding it.
+
+With OAuth on, `currentUserId()` returns null for an unauthenticated request
+rather than falling back. That distinction is the whole point: a fallback there
+would mean an unauthenticated caller quietly became somebody, and every ownership
+check downstream would then pass for that somebody. API routes answer 401, pages
+redirect to sign-in, and the demo cookie stops working entirely.
+
+Sessions are JWT rather than a database adapter. An adapter means four more
+tables and a second source of truth about who exists, to support a flow with no
+profile page and no account settings. The user id is `provider:providerAccountId`
+and never the email address, because email is re-assignable and a mandate is
+authority over money — it must not follow an address that changed hands.
+
+Adding all of this touched one function. That is the payoff from having built the
+boundary first: the enforcement was already in place and already keyed on the
+answer, so authentication only had to supply a better answer.
+
+### Ownership is enforced wherever a mandate is touched
 
 There is no login. There IS a tenancy boundary, and conflating the two would be
 the mistake. A login form answers "who are you". What actually protects a

@@ -67,11 +67,16 @@ export function Sidebar({
   authority,
   dark,
   user,
+  authEnabled,
+  signOut,
 }: {
   authority: SidebarAuthority
   dark: boolean
-  /** Who the app is acting as. No login yet, so this is a demo identity. */
+  /** Who the app is acting as, and whether that was proven or asserted. */
   user: DemoUser
+  authEnabled: boolean
+  /** Server Component carrying the sign-out action. */
+  signOut: React.ReactNode
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -108,7 +113,13 @@ export function Sidebar({
       </div>
 
       {/* Whose mandates are on screen. Everything below is scoped to them. */}
-      <UserSwitcher user={user} users={DEMO_USERS} collapsed={collapsed} />
+      <UserSwitcher
+        user={user}
+        users={DEMO_USERS}
+        collapsed={collapsed}
+        authEnabled={authEnabled}
+        signOut={signOut}
+      />
 
       {/* Live authority — how much could be spent right now, in total? */}
       <AuthorityStatus authority={authority} collapsed={collapsed} />

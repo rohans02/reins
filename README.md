@@ -160,14 +160,18 @@ live model.
   verification path. The event is synthetic. The verification is not.
 - **The catalog is a fixture.** 12 SKUs across 4 merchants in `prisma/seed.ts`. Catalog
   ingestion is out of scope.
-- **No authentication, but the tenancy boundary is real.** There is no login. What
-  is not missing is the enforcement: every read is filtered by owner and every write
-  checks ownership server-side, in `authorizeAndExecute`, in `runAgent` and in every
-  route under `/api/mandates`. Another person's mandate id answers 404 on read, on
-  revoke and on agent run, and it is refused on the money path before the engine even
-  runs. The whole of the missing auth layer is `currentUserId()` in
-  `src/lib/auth/session.ts`. A sidebar switcher lets you change person and watch the
-  isolation hold. Prove it with `npm run smoke:mandates`.
+- **Authentication is optional, ownership is not.** Sign-in is GitHub or Google
+  OAuth through Auth.js, and it turns on when you set a provider's credentials.
+  Leave them blank and the app runs on two demo identities with a switcher, so a
+  fresh clone opens without an OAuth app of its own. Enforcement is identical in
+  both modes: every read is filtered by owner and every write checks ownership
+  server-side, in `authorizeAndExecute`, in `runAgent` and in every route under
+  `/api/mandates`. Another person's mandate id answers 404 on read, on revoke and
+  on agent run, and it is refused on the money path before the engine runs. With
+  OAuth on, an unauthenticated request gets 401 on every API route and a redirect
+  to sign-in on every screen. What differs between the modes is only whether the
+  identity was proven or asserted, and the sidebar says which. Prove the boundary
+  with `npm run smoke:mandates`.
 - **The adversarial cases are self-authored.** They are published in
   `src/lib/eval/cases.ts`, reproducible with one command, reported per category rather than
   as one number, and include legitimate purchases as well as refusals. They are still not an

@@ -19,6 +19,7 @@ import { verifyChain } from '@/lib/ledger/verify'
 export async function GET(request: Request) {
   const mandateId = new URL(request.url).searchParams.get('mandateId') ?? undefined
   const userId = await currentUserId()
+  if (!userId) return Response.json({ error: 'unauthenticated' }, { status: 401 })
 
   const [rows, chain] = await Promise.all([
     prisma.decision.findMany({
