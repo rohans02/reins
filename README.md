@@ -29,7 +29,7 @@ the phase it belongs to.
 | 2 | Agent loop · Razorpay Orders · webhook HMAC · payment simulator | ✅ built, pending live-model validation |
 | 3 | Agent Console · Mandate Studio · Ledger UI · SSE streaming | ✅ (explainer deferred) |
 | 4 | Adversarial suite · Trust Report | ✅ |
-| 5 | README · architecture diagram · 5-min video | ⬜ |
+| 5 | README · architecture diagram · 5-min video | 🔨 diagram done, video outstanding |
 
 ## Run it
 
@@ -60,14 +60,16 @@ npm run db:reset         # wipe + reseed (use this between demo takes)
 | Refused correctly | 58 / 58 |
 | Allowed correctly | 10 / 10 |
 | **Unauthorized spend** | **₹0** |
-| Authorization p50 | 29µs |
-| Authorization p99 | 180µs |
+| Authorization p50 | ~30µs |
 | Ledger chain | verified |
 
 Reported per category in `evals/README.md`, because an aggregate hides which rule
 is weak. The suite exits non-zero if any case fails or a single paisa escapes.
 
 ## Architecture
+
+Full write-up, including every design decision and the alternative it was chosen
+over: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ```
 Browser (Next.js App Router)
