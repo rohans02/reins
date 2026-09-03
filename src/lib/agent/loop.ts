@@ -6,7 +6,7 @@ import { evaluate, type LedgerState } from '@/lib/policy/engine'
 import { append } from '@/lib/ledger/append'
 import { executePayment } from '@/lib/razorpay/execute'
 import { AGENT_TOOLS, TOOL_NAMES } from './tools'
-import { buyerAgentSystemPrompt, wrapUntrusted } from './prompts'
+import { buyerAgentSystemPrompt, wrapUntrusted, type PastPurchase } from './prompts'
 import type { CheckResult } from '@/lib/policy/engine'
 import type { ModelClient, ToolUse } from './model'
 
@@ -76,6 +76,13 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
   yield { type: 'started', runId: run.id, model: model.name }
 
+  // Loaded once, before the loop. The system prompt is the cached prefix, so
+  // rebuilding it every turn would throw prompt caching away — and within a run
+  // the agent already sees its own purchases in the conversation history, so
+  // repeating them here would be redundant anyway.
+  const history = await loadPurchaseHistory(mandateId)
+  const system = buyerAgentSystemPrompt(rules, history, now())
+
   const startedAt = Date.now()
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: task }]
 
@@ -91,7 +98,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
       }
 
       const modelTurn = await model.next({
-        system: buyerAgentSystemPrompt(rules),
+        system,
         messages,
         tools: AGENT_TOOLS,
       })
@@ -354,6 +361,45 @@ async function appendDecision(args: {
  * the lag window and blow the total cap while every individual check passed. We
  * reserve against the cap the moment we authorize.
  */
+/**
+ * Purchases already authorized under this mandate, newest last.
+ *
+ * Gives the agent a sense of what the person already has, so \"restock\" means
+ * topping up rather than buying the same list again. This is our own ledger
+ * data, not third-party content, so it is trusted input.
+ */
+export async function loadPurchaseHistory(
+  mandateId: string,
+  limit = 15,
+): Promise<PastPurchase[]> {
+  const rows = await prisma.decision.findMany({
+    where: { mandateId, verdict: 'ALLOW', action: 'PURCHASE' },
+    orderBy: { seq: 'desc' },
+    take: limit,
+  })
+
+  const itemIds = rows.map((r) => (JSON.parse(r.requestedAction) as { itemId?: string }).itemId ?? '')
+  const items = await prisma.catalogItem.findMany({ where: { id: { in: itemIds } } })
+  const nameById = new Map(items.map((i) => [i.id, i.name]))
+
+  return rows
+    .map((r) => {
+      const req = JSON.parse(r.requestedAction) as {
+        itemId?: string
+        merchantId?: string
+        amountPaise?: number
+      }
+      return {
+        itemId: req.itemId ?? 'unknown',
+        name: nameById.get(req.itemId ?? '') ?? req.itemId ?? 'unknown item',
+        merchantId: req.merchantId ?? 'unknown',
+        amountPaise: req.amountPaise ?? 0,
+        at: r.createdAt,
+      }
+    })
+    .reverse()
+}
+
 export async function loadLedgerState(mandateId: string): Promise<LedgerState> {
   const decisions = await prisma.decision.findMany({
     where: { mandateId },

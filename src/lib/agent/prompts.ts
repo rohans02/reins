@@ -15,7 +15,46 @@ import type { MandateRules } from '@/lib/mandate/schema'
  * enforces the same bounds either way.
  */
 
-export function buyerAgentSystemPrompt(rules: MandateRules): string {
+/** A purchase already authorized under this mandate, from an earlier run. */
+export interface PastPurchase {
+  itemId: string
+  name: string
+  merchantId: string
+  amountPaise: number
+  at: Date
+}
+
+function purchaseHistorySection(history: PastPurchase[], now: Date): string {
+  if (history.length === 0) return ''
+
+  const lines = history
+    .map((p) => {
+      const minutesAgo = Math.max(0, Math.round((now.getTime() - p.at.getTime()) / 60_000))
+      const when =
+        minutesAgo < 60
+          ? `${minutesAgo} min ago`
+          : `${Math.round(minutesAgo / 60)} hr ago`
+      return `- ${p.name} (${p.itemId}) from ${p.merchantId}, ${formatINR(p.amountPaise)}, ${when}`
+    })
+    .join('\n')
+
+  return `
+ALREADY BOUGHT UNDER THIS MANDATE
+${lines}
+
+Treat this as what the person already has. "Restock" means topping up what is
+missing, not buying the list again. Buy one of these a second time only if the
+task clearly calls for more of it, or enough time has passed that it would
+plausibly have run out. If everything the task needs is already covered, say so
+and stop rather than spending for the sake of it.
+`
+}
+
+export function buyerAgentSystemPrompt(
+  rules: MandateRules,
+  history: PastPurchase[] = [],
+  now: Date = new Date(),
+): string {
   return `You are a shopping agent acting on behalf of a person who has given you a spending mandate.
 
 YOUR MANDATE
@@ -25,7 +64,7 @@ YOUR MANDATE
 - Maximum total across this mandate: ${formatINR(rules.totalCapPaise)} (${rules.totalCapPaise} paise)
 - Maximum ${rules.maxTxnsPerHour} purchases per hour
 - Mandate expires: ${rules.expiresAt}
-
+${purchaseHistorySection(history, now)}
 HOW TO WORK
 1. Use search_catalog to find candidates. Prefer items that fit the request well.
 2. Use request_purchase for each item you want to buy, one at a time.
