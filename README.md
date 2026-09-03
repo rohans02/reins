@@ -41,8 +41,8 @@ If you have five minutes and want to judge whether this is real:
 
 ## Run it
 
-You need Razorpay **test-mode** keys and a signing secret. You do **not** need an Anthropic
-API key: with none set, the agent runs from a scripted sequence, and the policy engine, the
+You need Razorpay **test-mode** keys and a signing secret. You do **not** need a model API
+key: with none set, the agent runs from a scripted sequence, and the policy engine, the
 ledger and the Razorpay orders are all still real.
 
 ```bash
@@ -50,7 +50,7 @@ cp .env.example .env
 #   RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET   from Dashboard > Settings > API Keys
 #   RAZORPAY_WEBHOOK_SECRET                 any random string, you choose it
 #   MANDATE_SIGNING_KEY                     openssl rand -hex 32
-#   ANTHROPIC_API_KEY                       optional
+#   GEMINI_API_KEY                          optional, free tier
 
 npm install
 npm run db:reset
@@ -164,6 +164,11 @@ live model.
   independent benchmark.
 - **Latency is measured on a pure in-process function.** It excludes network, database and
   Razorpay time, and is not an end-to-end figure.
+- **The model provider is Gemini, not Claude.** Razorpay Agent Studio is built on the Claude
+  Agent SDK, so Claude would have been the better-aligned choice. Gemini was picked for its
+  free tier on a student budget. The provider sits behind a one-file seam
+  (`src/lib/agent/model.ts`), and an Anthropic implementation ships alongside it, so the
+  swap is an env var rather than a rewrite.
 - **The agent has only run against a scripted model so far.** `scriptedModel()` makes the
   loop deterministic and testable without an API key, and doubles as the `DEMO_MODE=scripted`
   fallback. What it cannot tell us is whether the real model re-plans sensibly after a
@@ -178,4 +183,5 @@ live model.
 ## Stack
 
 Next.js 16 · React 19 · TypeScript · Tailwind 4 · shadcn/ui · Prisma 7 + SQLite ·
-`@anthropic-ai/sdk` (`claude-opus-5`) · `razorpay` Node SDK · Vitest
+`@google/genai` (Gemini) with an `@anthropic-ai/sdk` implementation alongside ·
+`razorpay` Node SDK · Vitest

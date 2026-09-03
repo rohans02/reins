@@ -45,7 +45,7 @@ convince the model of anything it likes, and it still cannot move a rupee.
 │                                                                        │
 │   ┌────────────────────┐   proposes    ┌────────────────────────────┐  │
 │   │  BUYER AGENT       │──────────────▶│  POLICY ENGINE             │  │
-│   │  claude-opus-5     │               │  pure TS · no LLM · no I/O │  │
+│   │  gemini / claude   │               │  pure TS · no LLM · no I/O │  │
 │   │  hand-written loop │◀──────────────│  9 checks, never short-    │  │
 │   │  3 tools only      │  ALLOW/BLOCK  │  circuits                  │  │
 │   │  no credentials    │               └──────────┬─────────────────┘  │
@@ -233,8 +233,18 @@ defend than "the SDK handles it".
 
 ### The model is behind a seam
 
-`ModelClient` has two implementations: the real Anthropic client, and a scripted
-one that replays fixed turns.
+`ModelClient` has three implementations: Gemini, Anthropic, and a scripted one
+that replays fixed turns.
+
+The loop speaks one message shape internally, and that shape happens to be
+Anthropic's. The Gemini adapter translates in both directions at the boundary
+rather than forcing a neutral format through the loop, the scripted client and
+the tests. Those translators are pure and unit-tested, because a provider swap
+breaks in translation and nowhere else.
+
+*On the choice itself:* Claude is the better-aligned option, since Razorpay Agent
+Studio is built on the Claude Agent SDK. Gemini was chosen for its free tier on a
+student budget. Because the seam exists, the decision is an env var.
 
 One seam, three jobs. The loop could be built before an API key existed. Tests
 get determinism the real API can never provide. And it is the on-camera fallback,
