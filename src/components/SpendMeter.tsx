@@ -13,12 +13,10 @@ import { cn } from '@/lib/utils'
 export function SpendMeter({
   authorizedPaise,
   totalCapPaise,
-  segments = [],
   revoked = false,
 }: {
   authorizedPaise: number
   totalCapPaise: number
-  segments?: number[]
   revoked?: boolean
 }) {
   const pct = Math.min(100, (authorizedPaise / totalCapPaise) * 100)
@@ -43,15 +41,6 @@ export function SpendMeter({
           )}
           style={{ width: `${pct}%` }}
         />
-        {/* Per-purchase ticks, so several small buys still read as several. */}
-        {segments.length > 1 &&
-          segments.slice(0, -1).map((cumulative, i) => (
-            <div
-              key={i}
-              className="absolute top-0 h-full w-px bg-background/70"
-              style={{ left: `${Math.min(100, (cumulative / totalCapPaise) * 100)}%` }}
-            />
-          ))}
       </div>
     </div>
   )

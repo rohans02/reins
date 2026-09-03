@@ -28,7 +28,7 @@ export type FeedRow =
       merchantId: string
       itemId: string
       amountPaise: number
-      latencyMs: number
+      latencyUs: number
       razorpayOrderId?: string
     }
   | { kind: 'system'; id: string; text: string; tone?: 'normal' | 'bad' }
@@ -51,16 +51,40 @@ function plainReason(codes: string[]): string {
   return codes.map((c) => REASON_TEXT[c] ?? c.toLowerCase()).join(' · ')
 }
 
+/** How close to the bottom still counts as "following along", in pixels. */
+const STICK_THRESHOLD_PX = 80
+
 export function ActivityFeed({ rows }: { rows: FeedRow[] }) {
   const endRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // Whether to keep pinning to the bottom. A ref, not state: it changes on every
+  // scroll event and must not trigger a re-render, and updating state from a
+  // scroll handler mid-stream would fight the incoming events.
+  const stickToBottom = useRef(true)
+
+  function onScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottom.current = distanceFromBottom <= STICK_THRESHOLD_PX
+  }
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    // Only follow the stream if the reader is already at the bottom. Scrolling
+    // up to read an earlier row is a deliberate act, and yanking them back down
+    // on the next event makes the feed unreadable exactly when it gets busy.
+    if (stickToBottom.current) {
+      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
   }, [rows.length])
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2"
+      >
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing yet. Give the agent a task — every attempt it makes, allowed or refused, lands
@@ -81,10 +105,15 @@ function Row({ row }: { row: FeedRow }) {
   }
 
   if (row.kind === 'tool') {
+    // A null filter means 'no filter'. The tool schema requires every field, so
+    // the model sends explicit nulls — showing them is noise, not information.
+    const shown = Object.fromEntries(
+      Object.entries(row.input).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+    )
     return (
       <div className="font-mono text-[11px] text-muted-foreground break-all mg-enter">
         <span className="text-foreground/70">▸ {row.name}</span>
-        {`(${JSON.stringify(row.input)})`}
+        {`(${JSON.stringify(shown)})`}
       </div>
     )
   }
@@ -169,7 +198,7 @@ function Row({ row }: { row: FeedRow }) {
 
       <div className="mt-2 flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
         <span>#{row.seq}</span>
-        <span>{(row.latencyMs * 1000).toFixed(0)}µs</span>
+        <span>{row.latencyUs}µs</span>
         {row.razorpayOrderId && <span className="truncate">{row.razorpayOrderId}</span>}
       </div>
     </div>
