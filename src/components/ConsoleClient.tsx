@@ -8,17 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MandatePanel, type MandateView } from '@/components/MandatePanel'
 import { ActivityFeed, type FeedRow } from '@/components/ActivityFeed'
-import { PolicyStrip } from '@/components/PolicyStrip'
 import { LedgerSlideOver } from '@/components/LedgerSlideOver'
-import type { CheckResult } from '@/lib/policy/engine'
 
 /**
  * ★ MISSION CONTROL — roughly 70% of the five-minute demo happens on this screen.
  *
- * Two panels and a strip, not three panels:
+ * Two panels:
  *   left    the mandate — bounds, spend meter, expiry countdown, REVOKE
- *   right   one merged activity feed (agent narration + tool calls + verdicts)
- *   bottom  the policy engine pipeline firing per transaction
+ *   right   one merged activity feed, with the command bar anchored below it
  *
  * The audit ledger is a slide-over rather than a third column: it is not needed
  * until after the revoke, and a third panel would compete for attention during
@@ -32,8 +29,6 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
   const [running, setRunning] = useState(false)
   const [task, setTask] = useState('Restock my pantry for the week.')
   const [rows, setRows] = useState<FeedRow[]>([])
-  const [checks, setChecks] = useState<CheckResult[] | null>(null)
-  const [lastLatency, setLastLatency] = useState<number | null>(null)
   const [scripted, setScripted] = useState(false)
   // Optimistic spend during a run; the server value catches up on refresh.
   const [delta, setDelta] = useState(0)
@@ -43,8 +38,6 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
     if (!mandate) return
     setRunning(true)
     setRows([])
-    setChecks(null)
-    setLastLatency(null)
     setDelta(0)
     setAllowed([])
 
@@ -108,9 +101,6 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
       case 'decision': {
         const amountPaise = Number(ev.amountPaise)
         const verdict = String(ev.verdict)
-        setChecks(ev.checks as CheckResult[])
-        setLastLatency(Number(ev.latencyMs))
-
         setRows((r) => [
           ...r,
           {
@@ -216,44 +206,40 @@ export function ConsoleClient({ mandate }: { mandate: MandateView | null }) {
         </div>
 
         <div className="min-h-0 flex flex-col">
-          {/* Command bar. Sits with the feed it drives rather than in the app
-              header — and above it rather than below, because this is one command
-              then watch, not a conversation. The bottom of this column belongs to
-              the policy strip, which is the differentiator. */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <Input
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !running && !revoked) void runAgent()
-              }}
-              placeholder="What should the agent do?"
-              disabled={running || revoked}
-              className="h-9"
-            />
-            <Button
-              onClick={runAgent}
-              disabled={running || revoked}
-              className="h-9 shrink-0 px-4"
-            >
-              {running ? 'Running…' : 'Run agent'}
-            </Button>
-            {running && (
-              <span className="flex items-center gap-1.5 shrink-0 pl-1">
-                <span className="inline-block size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                <span className="font-mono text-[11px] text-muted-foreground">live</span>
-              </span>
-            )}
-          </div>
-
           <div className="flex-1 min-h-0">
             <ActivityFeed rows={rows} />
           </div>
 
-          <div className="p-4 pt-0 space-y-2">
-            <PolicyStrip checks={checks} latencyMs={lastLatency} />
+          {/* Command bar, anchored to the bottom where the feed ends. */}
+          <div className="border-t border-border px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !running && !revoked) void runAgent()
+                }}
+                placeholder="What should the agent do?"
+                disabled={running || revoked}
+                className="h-10"
+              />
+              <Button
+                onClick={runAgent}
+                disabled={running || revoked}
+                className="h-10 shrink-0 px-5"
+              >
+                {running ? 'Running…' : 'Run agent'}
+              </Button>
+              {running && (
+                <span className="flex items-center gap-1.5 shrink-0 pl-1">
+                  <span className="inline-block size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span className="font-mono text-[11px] text-muted-foreground">live</span>
+                </span>
+              )}
+            </div>
+
             {scripted && (
-              <p className="text-[11px] text-muted-foreground px-1">
+              <p className="text-[11px] text-muted-foreground">
                 Scripted model: the agent&apos;s choices are fixed. The policy engine, the ledger
                 and the Razorpay orders are real.
               </p>
