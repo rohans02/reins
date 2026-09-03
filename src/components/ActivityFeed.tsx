@@ -51,6 +51,40 @@ function plainReason(codes: string[]): string {
   return codes.map((c) => REASON_TEXT[c] ?? c.toLowerCase()).join(' · ')
 }
 
+/**
+ * Renders a tool call as a sentence.
+ *
+ * Watching an agent fire `search_catalog({"category":"groceries"})` tells you it
+ * did something; it does not tell you what it is trying to do. Saying so in
+ * words is the difference between a black box and an assistant you can follow.
+ */
+function describeToolCall(name: string, input: Record<string, unknown>): string {
+  const str = (k: string) => (typeof input[k] === 'string' ? (input[k] as string) : undefined)
+  const num = (k: string) => (typeof input[k] === 'number' ? (input[k] as number) : undefined)
+
+  if (name === 'search_catalog') {
+    const bits: string[] = []
+    if (str('query')) bits.push(`matching "${str('query')}"`)
+    if (str('category')) bits.push(`in ${str('category')}`)
+    if (str('merchantId')) bits.push(`at ${str('merchantId')}`)
+    if (num('maxPricePaise')) bits.push(`under ${formatINR(num('maxPricePaise')!)}`)
+    return bits.length > 0
+      ? `Looking for items ${bits.join(' ')}`
+      : 'Looking through the whole catalog'
+  }
+
+  if (name === 'get_item') return `Checking the details of ${str('itemId') ?? 'an item'}`
+
+  if (name === 'request_purchase') {
+    const amount = num('amountPaise')
+    return `Asking to buy ${str('itemId') ?? 'an item'} from ${str('merchantId') ?? 'a merchant'}${
+      amount ? ` for ${formatINR(amount)}` : ''
+    }`
+  }
+
+  return `Calling ${name}`
+}
+
 /** How close to the bottom still counts as "following along", in pixels. */
 const STICK_THRESHOLD_PX = 80
 
@@ -111,9 +145,18 @@ function Row({ row }: { row: FeedRow }) {
       Object.entries(row.input).filter(([, v]) => v !== null && v !== undefined && v !== ''),
     )
     return (
-      <div className="font-mono text-[11px] text-muted-foreground break-all mg-enter">
-        <span className="text-foreground/70">▸ {row.name}</span>
-        {`(${JSON.stringify(shown)})`}
+      <div className="mg-enter">
+        {/* Plain English first, so the agent reads as deliberate rather than as a
+            black box firing opaque calls. The raw signature stays underneath for
+            anyone who wants it. */}
+        <div className="text-sm text-muted-foreground flex items-baseline gap-1.5">
+          <span aria-hidden className="text-foreground/50">▸</span>
+          <span>{describeToolCall(row.name, shown)}</span>
+        </div>
+        <div className="font-mono text-[10px] text-muted-foreground/60 break-all pl-4 mt-0.5">
+          {row.name}
+          {`(${JSON.stringify(shown)})`}
+        </div>
       </div>
     )
   }
