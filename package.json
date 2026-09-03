@@ -17,7 +17,8 @@
     "postinstall": "prisma generate",
     "smoke:razorpay": "tsx scripts/smoke-razorpay.ts",
     "smoke:phase1": "tsx scripts/smoke-phase1.ts",
-    "smoke:phase2": "tsx scripts/smoke-phase2.ts"
+    "smoke:phase2": "tsx scripts/smoke-phase2.ts",
+    "smoke:gemini": "tsx scripts/smoke-gemini.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
