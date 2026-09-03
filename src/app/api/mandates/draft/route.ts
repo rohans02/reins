@@ -1,22 +1,51 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenAI } from '@google/genai'
 import { MANDATE_DRAFTER_SYSTEM_PROMPT } from '@/lib/agent/prompts'
+import { selectProvider } from '@/lib/agent/select'
+import { DEFAULT_GEMINI_MODEL } from '@/lib/agent/gemini'
 import { prisma } from '@/lib/db'
 
 /**
  * POST /api/mandates/draft — plain-language intent to a structured mandate draft.
  * AI: yes. Razorpay: no.
  *
- * The model PROPOSES only. Nothing here is signed and nothing becomes active;
- * the response is a draft a human edits and approves at POST /api/mandates.
+ * The model PROPOSES only. Nothing here is signed and nothing becomes active.
+ * The response is a draft a human edits and approves at POST /api/mandates.
  *
- * With no API key this returns 503 rather than faking a parse. The Mandate
- * Studio falls back to a manually-filled form, so the product still works — it
- * just does not pretend an LLM was involved when one was not.
+ * With no usable key this returns 503 rather than faking a parse. The Mandate
+ * Studio falls back to a manually filled form, so the product still works. It
+ * just does not pretend a model was involved when one was not.
  */
+
+const MANDATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    merchants: { type: 'array', items: { type: 'string' } },
+    categories: { type: 'array', items: { type: 'string' } },
+    perTxnCapPaise: { type: 'integer' },
+    totalCapPaise: { type: 'integer' },
+    maxTxnsPerHour: { type: 'integer' },
+    expiresAt: { type: 'string' },
+  },
+  required: [
+    'merchants',
+    'categories',
+    'perTxnCapPaise',
+    'totalCapPaise',
+    'maxTxnsPerHour',
+    'expiresAt',
+  ],
+} as const
+
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const provider = selectProvider()
+
+  if (provider === 'scripted') {
     return Response.json(
-      { error: 'ai_unavailable', message: 'ANTHROPIC_API_KEY is not set — fill the mandate in manually.' },
+      {
+        error: 'ai_unavailable',
+        message: 'No model API key is configured — fill the mandate in manually.',
+      },
       { status: 503 },
     )
   }
@@ -26,8 +55,46 @@ export async function POST(request: Request) {
 
   const merchants = await prisma.merchant.findMany()
   const known = merchants.map((m) => `${m.id} (${m.name}, ${m.category})`).join('; ')
+  const userPrompt = `Known merchants: ${known}\nToday is ${new Date().toISOString()}.\n\nIntent: ${intent}`
 
+  try {
+    const json =
+      provider === 'gemini'
+        ? await draftWithGemini(userPrompt)
+        : await draftWithAnthropic(userPrompt)
+
+    return Response.json({ rules: JSON.parse(json) as unknown })
+  } catch (err) {
+    return Response.json(
+      { error: 'draft_failed', message: err instanceof Error ? err.message : String(err) },
+      { status: 502 },
+    )
+  }
+}
+
+async function draftWithGemini(userPrompt: string): Promise<string> {
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY,
+  })
+
+  const res = await ai.models.generateContent({
+    model: process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+    contents: userPrompt,
+    config: {
+      systemInstruction: MANDATE_DRAFTER_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+      responseJsonSchema: MANDATE_SCHEMA,
+    },
+  })
+
+  const text = res.text
+  if (!text) throw new Error('Model returned no draft')
+  return text
+}
+
+async function draftWithAnthropic(userPrompt: string): Promise<string> {
   const client = new Anthropic()
+
   const res = await client.messages.create({
     model: 'claude-opus-5',
     max_tokens: 16_000,
@@ -35,35 +102,12 @@ export async function POST(request: Request) {
     thinking: { type: 'adaptive' },
     output_config: {
       effort: 'medium',
-      format: {
-        type: 'json_schema',
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            merchants: { type: 'array', items: { type: 'string' } },
-            categories: { type: 'array', items: { type: 'string' } },
-            perTxnCapPaise: { type: 'integer' },
-            totalCapPaise: { type: 'integer' },
-            maxTxnsPerHour: { type: 'integer' },
-            expiresAt: { type: 'string' },
-          },
-          required: ['merchants', 'categories', 'perTxnCapPaise', 'totalCapPaise', 'maxTxnsPerHour', 'expiresAt'],
-        },
-      },
+      format: { type: 'json_schema', schema: MANDATE_SCHEMA },
     },
-    messages: [
-      {
-        role: 'user',
-        content: `Known merchants: ${known}\nToday is ${new Date().toISOString()}.\n\nIntent: ${intent}`,
-      },
-    ],
+    messages: [{ role: 'user', content: userPrompt }],
   })
 
-  const text = res.content.find((b) => b.type === 'text')
-  if (!text || text.type !== 'text') {
-    return Response.json({ error: 'no_draft_returned' }, { status: 502 })
-  }
-
-  return Response.json({ rules: JSON.parse(text.text) as unknown })
+  const block = res.content.find((b) => b.type === 'text')
+  if (!block || block.type !== 'text') throw new Error('Model returned no draft')
+  return block.text
 }
