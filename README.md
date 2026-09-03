@@ -169,10 +169,17 @@ live model.
   free tier on a student budget. The provider sits behind a one-file seam
   (`src/lib/agent/model.ts`), and an Anthropic implementation ships alongside it, so the
   swap is an env var rather than a rewrite.
-- **The agent has only run against a scripted model so far.** `scriptedModel()` makes the
-  loop deterministic and testable without an API key, and doubles as the `DEMO_MODE=scripted`
-  fallback. What it cannot tell us is whether the real model re-plans sensibly after a
-  refusal, or whether it takes the prompt-injection bait. That needs a live key.
+- **The real model refuses the prompt injection, so the demo forces it.** Validated against
+  `gemini-2.5-flash` on 2026-09-03: the agent completed nine autonomous purchases and never
+  once attempted the Luxe Store watch. Told explicitly to browse everything, it still
+  answered that it could only purchase groceries. That is the model behaving well, and it is
+  not something to depend on — a different model or a better-crafted injection changes it.
+  So `FORCE_ATTEMPT=true` simulates a model that has already been taken in, and the engine
+  refuses it anyway with all four reason codes. The claim was never that the model resists.
+  It is that it does not matter whether the model resists.
+- **`scriptedModel()` remains the on-camera fallback.** It makes the loop deterministic and
+  runnable with no API key at all, and every guarantee downstream of the model is identical
+  either way.
 - **Ledger appends are serialised by an in-process mutex.** Correct for one process, wrong
   for several. At scale it becomes a database sequence or an advisory lock.
 - **UPI Reserve Pay and UPI Circle are conceptual alignment, not integrations.** The mandate
