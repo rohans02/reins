@@ -27,14 +27,17 @@ If you have five minutes and want to judge whether this is real:
 1. **`src/lib/policy/engine.ts`** — the whole product. A pure function, no I/O, no model
    call, nine checks, and it never short-circuits so one attempt that breaks four rules
    reports four rules broken.
-2. **`npm run smoke:phase1`** — signs a mandate, evaluates three purchases, writes them to
+2. **`src/lib/authorize.ts`** — the only path to money, and where the agent's claimed
+   merchant, category and price are thrown away in favour of the catalog's. Without this
+   the allowlists are advisory.
+3. **`npm run smoke:phase1`** — signs a mandate, evaluates three purchases, writes them to
    the hash-chained ledger, then rewrites a recorded BLOCK to look like an ALLOW and shows
    the chain detect it.
-3. **`npm run eval`** — 68 adversarial cases through that same engine. Exits non-zero if a
+4. **`npm run eval`** — 68 adversarial cases through that same engine. Exits non-zero if a
    single paisa escapes.
-4. **`/catalog` in the running app** — the prompt-injection payload sitting in a product
+5. **`/catalog` in the running app** — the prompt-injection payload sitting in a product
    description, before the agent ever reads it.
-5. **[ARCHITECTURE.md](ARCHITECTURE.md)** — every design decision and the alternative it was
+6. **[ARCHITECTURE.md](ARCHITECTURE.md)** — every design decision and the alternative it was
    chosen over.
 
 ---
@@ -50,7 +53,9 @@ cp .env.example .env
 #   RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET   from Dashboard > Settings > API Keys
 #   RAZORPAY_WEBHOOK_SECRET                 any random string, you choose it
 #   MANDATE_SIGNING_KEY                     openssl rand -hex 32
-#   GEMINI_API_KEY                          optional, free tier
+#   DEMO_MODE                               scripted (default) | live
+#   GEMINI_API_KEY                          optional; live mode only
+#   AUTH_SECRET + AUTH_GITHUB_* / AUTH_GOOGLE_*   optional sign-in
 
 npm install
 npm run db:reset
@@ -61,12 +66,12 @@ Then open <http://localhost:3000>, create a mandate, and run the agent.
 
 | Command | What it does |
 |---|---|
-| `npm test` | Policy engine and ledger unit tests |
+| `npm test` | 64 tests: policy engine, ledger, catalog resolution, webhook settlement, explainer |
 | `npm run eval` | Adversarial suite, prints the metrics table |
 | `npm run smoke:phase1` | sign → evaluate → append → verify → tamper → detected |
 | `npm run smoke:phase2` | scripted agent → policy gate → real Razorpay orders → webhook → revoke |
 | `npm run smoke:mandates` | Two live mandates, neither able to spend the other's budget, and a second person refused |
-| `npm run smoke:razorpay` | Confirms the Orders API works with your test keys |
+| `npm run smoke:razorpay` | Creates a real test-mode order and Payment Link with your keys |
 | `npm run db:reset` | Wipe and reseed. Stop `npm run dev` first, it holds the database file |
 
 ---
@@ -111,10 +116,12 @@ Next.js server
    POLICY ENGINE  -- pure TS, no LLM, no I/O, not routable
         | ALLOW only
         v
-   RAZORPAY EXECUTOR (single choke point, idempotent)
+   RAZORPAY EXECUTOR (single choke point, idempotent) -- one order per purchase
         |
    AUDIT LEDGER (append-only, SHA-256 hash-chained)
         |
+   SETTLEMENT -- at end of run, one Payment Link per merchant; the paid webhook
+        |        settles that whole basket
    SQLite (Prisma 7)          Razorpay test mode (Orders, Payment Links, webhooks)
 ```
 
@@ -122,13 +129,13 @@ Next.js server
 
 ## Why AI, and where it is deliberately absent
 
-AI is used in exactly three places, and kept out of a fourth on purpose:
+AI is used in exactly two places, and kept out of two more on purpose:
 
 | Where | Role | Load-bearing? |
 |---|---|---|
 | Buyer agent | Interprets an underspecified goal, composes a basket under budget, re-plans when refused | **Yes.** This cannot be rules |
 | Mandate drafting | Free-text intent into a typed policy object | Yes, but it only **proposes**. A human approves and the server signs |
-| Incident explainer | Turns reason codes into one human sentence | Deterministic today; an LLM version can sit behind the same function. Runs **after** the verdict either way |
+| **Incident explainer** | — | **Deliberately no AI now.** A pure function writes the refusal sentence, so it survives the model being down. An LLM version could sit behind the same signature |
 | **Policy engine** | — | **Deliberately no AI.** It has to be deterministic, unfakeable, free, and provable |
 
 ---
@@ -136,18 +143,26 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 ## What works today
 
 - Signed mandates, several live at once, each an independent budget
-- The nine-check policy engine, with 29 unit tests
+- The nine-check policy engine, with 22 unit tests of its own
+- **Catalog-resolved actions**: merchant, category and price come from the catalog,
+  so an agent that relabels a ₹4,999 watch as a ₹1 grocery is refused on the item,
+  not on its label. The claim is recorded as evidence and never judged
 - Append-only SHA-256 hash-chained audit ledger with live verification
 - A buyer agent with four tools and no credentials, only one of which can reach money
 - The agent states the basket and the total before it proposes a single rupee
-- Real Razorpay test-mode orders, with ids that appear in the dashboard
-- Webhook HMAC verification
-- Revocation that takes effect on the agent's very next action, including mid-run
-- A mandate manager showing every mandate and the combined live exposure in one number
-- Six screens: Mission Control, Mandates, Mandate Studio, Catalog, Audit Ledger, Trust Report
-- The 68-case adversarial suite
 - A deterministic one-sentence explanation on every refusal, written by a pure
   function so it survives every external service being down
+- Real Razorpay test-mode orders, one per authorized purchase, with ids in the dashboard
+- **Settlement grouped per merchant**: one real Payment Link per shop at the end of a
+  run, and paying it settles every order in that basket through the real webhook
+- Webhook HMAC verification, including `payment_link.paid`
+- Revocation that takes effect on the agent's very next action, including mid-run
+- Mandates that expire and exhaust themselves, and say so
+- Owner scoping on every read and every write, with optional GitHub or Google sign-in
+- A mandate manager showing every mandate and the combined live exposure in one number
+- Six screens plus sign-in: Mission Control, Mandates, Mandate Studio, Catalog,
+  Audit Ledger, Trust Report
+- The 68-case adversarial suite, plus 64 tests in total across the whole codebase
 
 ---
 

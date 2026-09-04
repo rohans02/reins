@@ -35,7 +35,7 @@ convince the model of anything it likes, and it still cannot move a rupee.
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
 │  BROWSER — Next.js App Router                                         │
-│  /console  /mandates/new  /catalog  /ledger  /trust                   │
+│  /console  /mandates  /mandates/new  /catalog  /ledger  /trust        │
 └──────────────┬────────────────────────────────────▲───────────────────┘
                │ POST /api/agent/run                 │ SSE
                │ POST /api/mandates                  │ text · tool_call
@@ -53,16 +53,19 @@ convince the model of anything it likes, and it still cannot move a rupee.
 │             │ search_catalog / get_item           ▼                    │
 │             ▼                          ┌────────────────────────────┐  │
 │   ┌────────────────────┐               │  RAZORPAY EXECUTOR         │  │
-│   │  CATALOG (12 SKUs) │               │  the single choke point    │  │
+│   │  CATALOG (12 SKUs) │               │  one order per purchase    │  │
 │   │  untrusted content │               │  idempotent per decision   │  │
-│   └────────────────────┘               └──────────┬─────────────────┘  │
+│   │  resolves the item │               │  settlement: one Payment   │  │
+│   └────────────────────┘               │  Link per merchant, after  │  │
+│                                        │  the run ends              │  │
+│                                        └──────────┬─────────────────┘  │
 │                                                   │                    │
 │   ┌───────────────────────────────────────────────▼─────────────────┐  │
 │   │  AUDIT LEDGER — append-only, SHA-256 hash-chained               │  │
 │   │  every verdict, allowed and refused alike                       │  │
 │   └───────────────────────────────┬─────────────────────────────────┘  │
 │                                   │              ▲                     │
-│                                   ▼              │ order.paid          │
+│                                   ▼              │ payment_link.paid   │
 │                        ┌────────────────┐  ┌─────┴──────────────────┐  │
 │                        │ SQLite (Prisma)│  │ /api/webhooks/razorpay │  │
 │                        └────────────────┘  │ real HMAC verification │  │
@@ -98,7 +101,10 @@ Every purchase follows exactly this sequence. There is no other route to money.
    disagreed with the catalog is stored alongside as evidence.
 7. Only on `ALLOW` does `executePayment()` create a Razorpay order, reading the
    resolved amount and never the claimed one.
-8. A webhook later confirms capture and credits the settled-spend counter.
+8. When the run ends, `settleRun()` creates one Payment Link per merchant for
+   everything that run authorized.
+9. Paying a link delivers `payment_link.paid`, and the webhook credits the
+   settled-spend counter for every order in that basket.
 
 Step 3 is what makes the allowlists real rather than advisory. Without it the
 engine judges the agent's own label: the ₹4,999 Luxe watch, submitted as a one
@@ -186,9 +192,9 @@ Each row stores `hash = sha256(canonical({ prevHash, ...digest }))`.
 `verifyChain()` recomputes the whole chain on request rather than trusting a
 stored flag.
 
-The LLM-written `explanation` field is deliberately **outside** the digest. It is
-prose produced after the verdict and it is cosmetic. The chain protects the
-decision, not the narration.
+The `explanation` field is deliberately **outside** the digest. It is prose
+written after the verdict by a pure function, and the chain protects the
+decision rather than the narration.
 
 Editing any recorded verdict breaks the chain at that row and every row after it,
 so a forger cannot repair it by editing one entry. `npm run smoke:phase1`
