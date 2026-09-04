@@ -108,8 +108,6 @@ export function Sidebar({
         </button>
       </div>
 
-      {accountName && <AccountPanel name={accountName} collapsed={collapsed} />}
-
       {/* Live mandate state — is authority in force right now? */}
       <MandateStatus mandate={mandate} collapsed={collapsed} />
 
@@ -137,6 +135,11 @@ export function Sidebar({
           )
         })}
       </nav>
+
+      {/* Identity sits at the FOOT of the rail, where every tool that has one
+          puts it. At the top it competed with the product name and the mandate
+          meter, which are the two things a judge should read first. */}
+      {accountName && <AccountPanel name={accountName} collapsed={collapsed} />}
 
       <div
         className={cn(

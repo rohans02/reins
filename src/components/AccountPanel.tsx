@@ -19,13 +19,17 @@ import { signOutAction } from '@/lib/auth/actions'
  * Collapsed, this is the avatar alone. A 64px rail has no room for a name, and
  * an unlabelled sign-out button sitting in it is a control nobody can identify
  * and everybody can hit by accident.
+ *
+ * It divides with a top border, not a bottom one, because it sits at the foot of
+ * the rail above the mode strip. A bottom border here would land directly on the
+ * strip's top border and draw the line twice.
  */
 export function AccountPanel({ name, collapsed }: { name: string; collapsed: boolean }) {
   const initial = name.slice(0, 1).toUpperCase()
 
   if (collapsed) {
     return (
-      <div className="flex justify-center py-3 border-b border-border">
+      <div className="flex justify-center py-3 border-t border-border">
         <span
           title={`Signed in as ${name} — expand the sidebar to sign out`}
           className="flex size-7 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold"
@@ -37,7 +41,7 @@ export function AccountPanel({ name, collapsed }: { name: string; collapsed: boo
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+    <div className="flex items-center gap-2 px-4 py-3 border-t border-border">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold">
         {initial}
       </span>
