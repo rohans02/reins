@@ -52,19 +52,32 @@ export async function handleWebhookEvent(
     return { applied: false, reason: `ignored event ${event.event}` }
   }
 
-  // payment_link.paid carries the order id in `reference_id`, which is what
-  // execute.ts set when it created the link. The nested payment entity is the
-  // fallback, since Razorpay includes it on most link payloads too.
-  const orderId =
-    event.payload.payment?.entity.order_id ??
-    event.payload.order?.entity.id ??
-    event.payload.payment_link?.entity.reference_id ??
-    null
-  const paymentId = event.payload.payment?.entity.id ?? null
-  if (!orderId) return { applied: false, reason: 'event carried no order id' }
+  // EVERY candidate id, then whichever one we actually know about.
+  //
+  // A first-non-null chain was wrong here, and wrong in a way only a real
+  // delivery reveals. Paying a Payment Link makes Razorpay create its OWN order
+  // for that payment, so `payment.entity.order_id` on a payment_link.paid event
+  // is the LINK's internal order, not ours. Preferring it meant looking up an id
+  // this system has never seen, answering 200, and silently applying nothing.
+  //
+  // `reference_id` is the one we set ourselves in execute.ts, so it is the only
+  // id guaranteed to be ours. Trying all of them and matching on whichever
+  // resolves keeps every event shape working without ranking them by guesswork.
+  const candidates = [
+    event.payload.payment_link?.entity.reference_id,
+    event.payload.payment?.entity.order_id,
+    event.payload.order?.entity.id,
+  ].filter((id): id is string => Boolean(id))
 
-  const txn = await prisma.transaction.findFirst({ where: { razorpayOrderId: orderId } })
-  if (!txn) return { applied: false, reason: `no transaction for order ${orderId}` }
+  const paymentId = event.payload.payment?.entity.id ?? null
+  if (candidates.length === 0) return { applied: false, reason: 'event carried no order id' }
+
+  const txn = await prisma.transaction.findFirst({
+    where: { razorpayOrderId: { in: candidates } },
+  })
+  if (!txn) {
+    return { applied: false, reason: `no transaction for order ${candidates.join(' or ')}` }
+  }
 
   // Idempotent: Razorpay retries webhooks, and a second delivery must not
   // double-count the spend.
