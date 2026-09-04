@@ -115,6 +115,29 @@ function describeToolCall(name: string, input: Record<string, unknown>): string 
   return `Calling ${name}`
 }
 
+/**
+ * Strips the markdown a live model sprinkles into prose.
+ *
+ * The feed is a transcript, not a document. A real model writes "**Great**, I
+ * secured the atta" and the asterisks render literally, which reads as a bug in
+ * the product rather than a habit of the model. The scripted run never shows
+ * this because its lines were written by hand.
+ *
+ * Deliberately a strip and not a renderer. Pulling in a markdown library to
+ * support emphasis nobody asked for would be a dependency bought for a
+ * cosmetic, and headings or tables in an agent's narration would be worse than
+ * the asterisks.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(^|[\s(])\*(?!\s)(.+?)(?<!\s)\*/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+}
+
 /** How close to the bottom still counts as "following along", in pixels. */
 const STICK_THRESHOLD_PX = 80
 
@@ -165,7 +188,7 @@ export function ActivityFeed({ rows }: { rows: FeedRow[] }) {
 
 function Row({ row }: { row: FeedRow }) {
   if (row.kind === 'say') {
-    return <p className="text-sm leading-relaxed rn-enter">{row.text}</p>
+    return <p className="text-sm leading-relaxed rn-enter">{stripMarkdown(row.text)}</p>
   }
 
   if (row.kind === 'tool') {
