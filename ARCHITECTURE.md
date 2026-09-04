@@ -541,8 +541,40 @@ Stated plainly, because the prototype makes choices a production system would no
 
 ---
 
-## 10. Known limitations
+## 10. Mandate lifecycle
 
+A mandate is standing authority with a budget, not a one-shot token, so
+completing a purchase cycle does not end it. Paying does not end it either:
+settlement and authorization are separate, and a mandate can spend itself out
+without a single link ever being paid.
+
+Three things end one.
+
+| Ending | Trigger | Automatic |
+|---|---|---|
+| `EXPIRED` | the clock passes `expiresAt` | yes |
+| `EXHAUSTED` | **authorized** spend reaches the total cap | yes |
+| `REVOKED` | somebody presses the button | no, and deliberately so |
+
+Exhaustion counts authorized spend rather than settled, which is the same reason
+the engine enforces against authorized spend: waiting for a webhook would let an
+agent authorize ten more purchases inside the lag window.
+
+**Both automatic transitions are lazy.** The engine's expiry and cap checks are
+exact and run on every proposal, so spending genuinely stops at the right moment.
+The status *column* only catches up when something is next attempted, so a
+mandate that expires and is never touched again sits at `ACTIVE` until someone
+tries to spend. Nothing is enforced wrongly by that; it is a display lag, and the
+UI computes liveness from status, expiry and spend together rather than trusting
+the column alone. Fixing it properly needs a scheduled sweep, which this
+prototype does not have.
+
+---
+
+## 11. Known limitations
+
+- Mandate status transitions are lazy, as above: correct in what they enforce,
+  late in what they display, until a scheduled sweep exists.
 - The adversarial cases are self-authored. They are published, reproducible, and
   reported per category, but they are not an independent benchmark.
 - Latency is measured on a pure in-process function and excludes network,

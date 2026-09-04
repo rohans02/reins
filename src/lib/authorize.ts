@@ -219,6 +219,25 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     resolved,
   }
 
+  // An expired mandate should SAY it is expired rather than sitting at ACTIVE
+  // while the engine refuses everything it proposes. The clock check has always
+  // been correct; the status column simply never caught up, which left EXPIRED
+  // in the vocabulary with nothing ever writing it.
+  //
+  // Like exhaustion, this is a status correction and not enforcement. The engine
+  // already refused, and this runs after it.
+  //
+  // Also like exhaustion, it is LAZY: it fires when something is attempted, so a
+  // mandate that expires and is never touched again stays ACTIVE until someone
+  // tries. Doing better needs a scheduled sweep, which is noted as a limitation
+  // rather than pretended away.
+  if (
+    mandate.status === 'ACTIVE' &&
+    decision.reasonCodes.includes(REASON_CODES.MANDATE_EXPIRED)
+  ) {
+    await prisma.mandate.update({ where: { id: mandateId }, data: { status: 'EXPIRED' } })
+  }
+
   if (decision.verdict !== 'ALLOW') return base
 
   // A mandate with nothing left to spend is finished, and should say so rather

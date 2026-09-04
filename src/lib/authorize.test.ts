@@ -122,6 +122,43 @@ describe('authorizeAndExecute resolves the item from the catalog', () => {
     expect(result.checks).toEqual([])
   })
 
+  it('marks an expired mandate EXPIRED instead of leaving it ACTIVE', async () => {
+    // EXPIRED was in the status vocabulary with nothing ever writing it, so an
+    // expired mandate kept claiming ACTIVE while the engine refused everything.
+    const expiredRules: MandateRules = { ...RULES, expiresAt: '2020-01-01T00:00:00.000Z' }
+    const expired = await prisma.mandate.create({
+      data: {
+        userId: DEFAULT_USER_ID,
+        status: 'ACTIVE',
+        intentText: 'expiry fixture',
+        rules: canonical(expiredRules),
+        signature: signMandate(expiredRules),
+        totalCapPaise: expiredRules.totalCapPaise,
+        expiresAt: new Date(expiredRules.expiresAt),
+        signedAt: new Date(),
+      },
+    })
+
+    const result = await authorizeAndExecute({
+      mandateId: expired.id,
+      actorUserId: DEFAULT_USER_ID,
+      action: {
+        merchantId: 'bigbasket',
+        itemId: 'bb-atta-5',
+        category: 'groceries',
+        amountPaise: 28_500,
+      },
+      requestId: 'expired-attempt',
+      execute: noPayment,
+    })
+
+    expect(result.verdict).toBe('BLOCK')
+    expect(result.reasonCodes).toContain('MANDATE_EXPIRED')
+
+    const after = await prisma.mandate.findUniqueOrThrow({ where: { id: expired.id } })
+    expect(after.status).toBe('EXPIRED')
+  })
+
   it('allows an honest purchase and executes it at the catalog price', async () => {
     let executedFor: string | null = null
     const result = await authorizeAndExecute({
