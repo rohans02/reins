@@ -34,9 +34,13 @@ import { cn } from '@/lib/utils'
  * It shows THE MANDATE ON SCREEN, not a sum across every live one. A summed
  * figure disagreed with the meter beside it in the console, and two different
  * answers to "how much has been spent" on one screen is worse than one narrower
- * answer. Identity is deliberately absent: there is no login, and saying so at
- * the top of the hero screen read as an unfinished auth system rather than a
- * stated limitation.
+ * answer.
+ *
+ * Identity appears ONLY when OAuth is configured and somebody is actually signed
+ * in. An earlier version announced "no login, demo identity" at all times, which
+ * put the words "no login" at the top of the hero screen and read as an
+ * unfinished auth system. A real session is the opposite case: hiding whose it
+ * is, with no way to end it, is the gap.
  */
 
 const NAV: Array<{ href: string; label: string; icon: LucideIcon }> = [
@@ -62,9 +66,16 @@ const ICON_BUTTON =
 export function Sidebar({
   mandate,
   dark,
+  account,
 }: {
   mandate: SidebarMandate | null
   dark: boolean
+  /**
+   * Signed-in identity and sign-out, or null when OAuth is off. A Server
+   * Component prop, because sign-out is a Server Action and this file is a
+   * client component.
+   */
+  account: React.ReactNode
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -99,6 +110,8 @@ export function Sidebar({
           {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </button>
       </div>
+
+      {account}
 
       {/* Live mandate state — is authority in force right now? */}
       <MandateStatus mandate={mandate} collapsed={collapsed} />

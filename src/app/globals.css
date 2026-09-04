@@ -127,6 +127,14 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind 4 dropped the preflight rule that gave buttons a pointer cursor,
+     so every clickable control in the app was showing an arrow. Restored once
+     here rather than sprinkled across components, and skipped when disabled so
+     a dead control still looks dead. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
 }
 /* --- Reins motion -------------------------------------------------
    Three micro-interactions only, per the design direction. A blocked row gets

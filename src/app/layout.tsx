@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { currentActor } from '@/lib/auth/session'
+import { authEnabled, currentActor } from '@/lib/auth/session'
 import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { Sidebar } from '@/components/Sidebar'
+import { AccountPanel } from '@/components/AccountPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import './globals.css'
@@ -51,6 +52,11 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <div className="flex h-screen">
           <Sidebar
             dark={dark}
+            account={
+              authEnabled() && actor.authenticated ? (
+                <AccountPanel name={actor.name} collapsed={false} />
+              ) : null
+            }
             mandate={
               mandate
                 ? {

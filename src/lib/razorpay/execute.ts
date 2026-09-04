@@ -23,6 +23,16 @@ import { razorpayClient } from './client'
  * purchase cannot be paid for twice.
  */
 
+/**
+ * How many Payment Links to create per mandate before stopping.
+ *
+ * Razorpay throttles link creation, and a seven-purchase run hit HTTP 429 on the
+ * last two. Four keeps a comfortable margin under the limit and is more than the
+ * demo needs, since exactly one link gets paid on camera. Orders are unaffected:
+ * every authorized purchase still creates one.
+ */
+const PAYMENT_LINK_LIMIT = Number(process.env.PAYMENT_LINK_LIMIT ?? 4)
+
 export interface ExecutionResult {
   razorpayOrderId: string
   amountPaise: number
@@ -86,8 +96,33 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
   // THE ORDER STANDS IF THIS FAILS. An authorized purchase whose link call
   // errored is still an authorized purchase, and throwing here would turn a
   // Razorpay hiccup into a policy failure on stage.
+  //
+  // CAPPED PER MANDATE, because Razorpay rate-limits link creation and a full
+  // run of seven reliably tripped it around the sixth. Failing gracefully was
+  // correct but it left the last cards with no Pay button and no explanation, so
+  // the honest fix is to stay under the limit rather than walk into it. Only one
+  // link is ever paid, so the first few are all the demo needs.
   let paymentLinkId: string | null = null
   let paymentLinkUrl: string | null = null
+
+  const linksSoFar = await prisma.transaction.count({
+    where: {
+      razorpayPaymentLinkId: { not: null },
+      decision: { mandateId: decision.mandateId },
+    },
+  })
+
+  if (linksSoFar >= PAYMENT_LINK_LIMIT) {
+    await prisma.transaction.create({
+      data: {
+        decisionId: decision.id,
+        razorpayOrderId: order.id,
+        amountPaise: requested.amountPaise,
+        status: 'CREATED',
+      },
+    })
+    return { razorpayOrderId: order.id, amountPaise: requested.amountPaise, reused: false }
+  }
 
   try {
     // The SDK's typings mark `customer` as required on the create body. The API

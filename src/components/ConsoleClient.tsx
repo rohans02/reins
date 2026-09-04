@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -202,6 +202,25 @@ export function ConsoleClient({
         break
     }
   }
+
+  // Settled spend arrives by WEBHOOK, so nothing in this browser knows when it
+  // lands. Paying a link is a conversation between the payer and Razorpay, and
+  // the confirmation reaches the server minutes or seconds later with no request
+  // from here to hang a response on.
+  //
+  // So the console asks again, but only while there is something outstanding:
+  // authorized money that has not settled yet. Once the two agree, or the run is
+  // in flight and refreshing anyway, the polling stops. That keeps a demo screen
+  // truthful without leaving a timer running all night on an idle laptop.
+  const settlementPending = Boolean(
+    mandate && mandate.settledPaise < mandate.authorizedPaise && !running,
+  )
+
+  useEffect(() => {
+    if (!settlementPending) return
+    const id = setInterval(() => router.refresh(), 4000)
+    return () => clearInterval(id)
+  }, [settlementPending, router])
 
   const liveSeqs = new Set(
     liveRows.flatMap((r) => (r.kind === 'verdict' ? [r.seq] : [])),
