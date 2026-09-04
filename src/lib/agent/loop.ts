@@ -258,21 +258,22 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   // the script. A canned "basket complete, all within the mandate" was still
   // printing after refusals and after a mid-run revoke had killed everything
   // following it, which made the transcript disagree with the ledger beside it.
-  // Settlement runs after the agent has stopped, when each shop's basket is
-  // finally known. It cannot fail the run: every order is already real and
-  // already authorized, so a link that could not be created is an inconvenience
-  // rather than a policy failure.
-  const baskets = await settleRun(run.id)
-  if (baskets.length > 0) {
-    await record({ t: 'settlement', baskets })
-    yield { type: 'settlement', baskets }
-  }
-
   const closing =
     `Done: ${purchases} ${purchases === 1 ? 'purchase' : 'purchases'} authorized, ` +
     `${blocked} refused.`
   await record({ t: 'say', text: closing })
   yield { type: 'text', text: closing }
+
+  // Settlement LAST, after the closing line, because it is what the reader acts
+  // on. It runs once the agent has stopped, when each shop's basket is finally
+  // known, and it cannot fail the run: every order is already real and already
+  // authorized, so a link that could not be created is an inconvenience rather
+  // than a policy failure.
+  const baskets = await settleRun(run.id)
+  if (baskets.length > 0) {
+    await record({ t: 'settlement', baskets })
+    yield { type: 'settlement', baskets }
+  }
 
   const { spentPaise } = await loadLedgerState(mandateId)
   yield { type: 'done', reason, purchases, blocked, authorizedPaise: spentPaise }

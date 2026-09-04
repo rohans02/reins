@@ -229,51 +229,68 @@ function Row({ row }: { row: FeedRow }) {
   if (row.kind === 'settlement') {
     const total = row.baskets.reduce((sum, b) => sum + b.amountPaise, 0)
     return (
-      <div className="rn-enter rounded-lg border border-border border-l-[3px] border-l-emerald-600 bg-card p-4 space-y-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            To pay
-          </span>
-          <span className="font-mono text-sm font-semibold tabular-nums shrink-0">
-            {formatINR(total)}
-          </span>
-        </div>
+      // A SUMMARY, not another verdict.
+      //
+      // It carried the same card shell and the same emerald left border as an
+      // allowed purchase, which made the run's conclusion read as one more line
+      // item. The accent bar is gone because that stripe means "the engine
+      // allowed this", and settlement is not a verdict. What replaces it is a
+      // filled panel and a rule above, so the eye reads a change of register
+      // rather than another row.
+      <div className="rn-enter mt-4 border-t-2 border-border pt-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                To pay
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {row.baskets.length} merchant{row.baskets.length === 1 ? '' : 's'}
+              </div>
+            </div>
+            <div className="font-mono text-2xl font-semibold tabular-nums shrink-0 leading-none">
+              {formatINR(total)}
+            </div>
+          </div>
 
-        {/* One row per SHOP, not per item. Nobody pays per item, and the orders
-            behind each row were authorized individually. */}
-        <ul className="space-y-1.5">
-          {row.baskets.map((b) => (
-            <li key={b.merchantId} className="flex items-center justify-between gap-3 text-xs">
-              <span className="min-w-0 truncate">
-                <span className="font-mono">{b.merchantId}</span>
-                <span className="text-muted-foreground">
-                  {' '}
-                  {b.itemCount} item{b.itemCount === 1 ? '' : 's'}
+          {/* One row per SHOP, not per item. Nobody pays per item, and the orders
+              behind each row were authorized individually. */}
+          <ul className="divide-y divide-border border-y border-border">
+            {row.baskets.map((b) => (
+              <li key={b.merchantId} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0 truncate text-sm">
+                  <span className="font-mono">{b.merchantId}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {' '}
+                    · {b.itemCount} item{b.itemCount === 1 ? '' : 's'}
+                  </span>
                 </span>
-              </span>
-              <span className="flex items-center gap-2 shrink-0">
-                <span className="font-mono tabular-nums">{formatINR(b.amountPaise)}</span>
-                {b.paymentLinkUrl ? (
-                  <a
-                    href={b.paymentLinkUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-emerald-600 transition-colors hover:bg-accent"
-                  >
-                    Pay
-                  </a>
-                ) : (
-                  <span className="font-mono text-[10px] text-muted-foreground">no link</span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span className="font-mono text-sm tabular-nums">
+                    {formatINR(b.amountPaise)}
+                  </span>
+                  {b.paymentLinkUrl ? (
+                    <a
+                      href={b.paymentLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Pay
+                    </a>
+                  ) : (
+                    <span className="font-mono text-[10px] text-muted-foreground">no link</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
 
-        <p className="text-[11px] text-muted-foreground">
-          One Razorpay Payment Link per merchant. Paying one settles every order in that
-          basket.
-        </p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            One Razorpay Payment Link per merchant. Paying one settles every order in that
+            basket.
+          </p>
+        </div>
       </div>
     )
   }
