@@ -28,6 +28,8 @@ export interface ExecutionResult {
   amountPaise: number
   /** true when an existing transaction was returned instead of creating a new order. */
   reused: boolean
+  /** Razorpay-hosted checkout for this order, when the link was created. */
+  paymentLinkUrl?: string | null
 }
 
 export async function executePayment(decisionId: string): Promise<ExecutionResult> {
@@ -49,6 +51,7 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
     return {
       razorpayOrderId: decision.transaction.razorpayOrderId,
       amountPaise: decision.transaction.amountPaise,
+      paymentLinkUrl: decision.transaction.razorpayPaymentLinkUrl,
       reused: true,
     }
   }
@@ -76,14 +79,64 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
     },
   })
 
+  // A Payment Link alongside the order, so the authorization can actually be
+  // paid rather than only recorded. `reference_id` is the order id, which is how
+  // the webhook maps a payment_link.paid event back to this transaction.
+  //
+  // THE ORDER STANDS IF THIS FAILS. An authorized purchase whose link call
+  // errored is still an authorized purchase, and throwing here would turn a
+  // Razorpay hiccup into a policy failure on stage.
+  let paymentLinkId: string | null = null
+  let paymentLinkUrl: string | null = null
+
+  try {
+    // The SDK's typings mark `customer` as required on the create body. The API
+    // does not: a link with notifications switched off needs nobody to notify,
+    // and inventing a name, email and phone to satisfy a type would put
+    // fabricated personal data on a real Razorpay object. So the call is exactly
+    // what the API wants and the over-strict type is cast past, once, here.
+    const params = {
+      amount: requested.amountPaise,
+      currency: 'INR',
+      reference_id: order.id,
+      description: `${requested.itemId} from ${requested.merchantId}`,
+      notes: {
+        mandateId: decision.mandateId,
+        decisionSeq: String(decision.seq),
+        itemId: requested.itemId,
+        merchantId: requested.merchantId,
+      },
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+    }
+
+    const link = await razorpayClient().paymentLink.create(
+      params as unknown as Parameters<ReturnType<typeof razorpayClient>['paymentLink']['create']>[0],
+    )
+    paymentLinkId = link.id
+    paymentLinkUrl = link.short_url
+  } catch (err) {
+    console.warn(
+      `[reins] payment link creation failed for order ${order.id}; the order stands.`,
+      err instanceof Error ? err.message : err,
+    )
+  }
+
   await prisma.transaction.create({
     data: {
       decisionId: decision.id,
       razorpayOrderId: order.id,
+      razorpayPaymentLinkId: paymentLinkId,
+      razorpayPaymentLinkUrl: paymentLinkUrl,
       amountPaise: requested.amountPaise,
       status: 'CREATED',
     },
   })
 
-  return { razorpayOrderId: order.id, amountPaise: requested.amountPaise, reused: false }
+  return {
+    razorpayOrderId: order.id,
+    amountPaise: requested.amountPaise,
+    paymentLinkUrl,
+    reused: false,
+  }
 }

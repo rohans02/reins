@@ -41,6 +41,8 @@ export type FeedRow =
       amountPaise: number
       latencyUs: number
       razorpayOrderId?: string
+      /** Razorpay-hosted checkout, when a link was created for this order. */
+      paymentLinkUrl?: string | null
       /** The deterministic refusal sentence. Empty or absent on ALLOW. */
       explanation?: string | null
       /** What the agent said it was buying, when it differed from the catalog. */
@@ -311,6 +313,18 @@ function Row({ row }: { row: FeedRow }) {
         <span>#{row.seq}</span>
         <span>{row.latencyUs}µs</span>
         {row.razorpayOrderId && <span className="truncate">{row.razorpayOrderId}</span>}
+        {/* A real Razorpay-hosted checkout for this exact order. The authorized
+            purchase can actually be paid, not merely recorded. */}
+        {row.paymentLinkUrl && (
+          <a
+            href={row.paymentLinkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-emerald-600 transition-colors hover:bg-accent"
+          >
+            Pay
+          </a>
+        )}
       </div>
     </div>
   )

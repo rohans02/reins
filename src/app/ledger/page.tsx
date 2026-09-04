@@ -46,6 +46,7 @@ export default async function LedgerPage() {
     latencyUs: r.latencyUs,
     hash: r.hash,
     razorpayOrderId: r.transaction?.razorpayOrderId ?? null,
+    paymentLinkUrl: r.transaction?.razorpayPaymentLinkUrl ?? null,
   }))
 
   return <LedgerTable rows={rows} chain={chain} />

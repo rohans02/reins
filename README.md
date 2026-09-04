@@ -154,13 +154,16 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 
 ## Limitations
 
-- **Payment capture is partly simulated.** Razorpay test mode cannot complete a payment
-  server-side without a checkout surface, and full server-to-server creation needs an
-  approval this project does not have. **Orders are real**, with real `order_id`s visible in
-  the Razorpay dashboard, and one payment in the demo is completed for real through a
-  Payment Link. Bulk capture is emitted by `src/lib/razorpay/simulator.ts`, which posts a
-  Razorpay-shaped webhook signed with the **real** webhook secret into the **real** HMAC
-  verification path. The event is synthetic. The verification is not.
+- **Payment capture is partly simulated, and the part that is not is stated exactly.**
+  Razorpay test mode cannot complete a payment server-side without a checkout surface.
+  **Orders are real**, with real `order_id`s in the Razorpay dashboard, and **every
+  authorized purchase also creates a real Payment Link** whose `short_url` appears as a Pay
+  button on the green card. One link is paid by hand on camera with a test card, and that
+  payment settles through the real `payment_link.paid` webhook into the real HMAC
+  verification path, with no simulator involved. Bulk capture for the remaining orders is
+  emitted by `src/lib/razorpay/simulator.ts`, which posts a Razorpay-shaped webhook signed
+  with the **real** webhook secret. Those events are synthetic. The verification is not, and
+  the one paid link is not synthetic at all.
 - **The catalog is a fixture.** 12 SKUs across 4 merchants in `prisma/seed.ts`. Catalog
   ingestion is out of scope.
 - **Authentication is optional, ownership is not.** Sign-in is GitHub or Google

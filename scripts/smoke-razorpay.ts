@@ -31,7 +31,26 @@ async function main() {
   const fetched = await rzp.orders.fetch(order.id)
   console.log(`   OK  id=${fetched.id}  status=${fetched.status}`)
 
-  console.log('\nORDERS API IS CLEAR — the Day-2 critical path is not blocked by KYC.')
+  console.log('3. Creating a Payment Link against that order...')
+  const params = {
+    amount: 28500,
+    currency: 'INR',
+    reference_id: order.id,
+    description: 'reins smoke test',
+    notes: { source: 'reins-smoke-test' },
+    notify: { sms: false, email: false },
+    reminder_enable: false,
+  }
+  const link = await rzp.paymentLink.create(
+    params as unknown as Parameters<typeof rzp.paymentLink.create>[0],
+  )
+  console.log(`   OK  id=${link.id}  short_url=${link.short_url}`)
+
+  console.log('4. Fetching the link back...')
+  const fetchedLink = await rzp.paymentLink.fetch(link.id)
+  console.log(`   OK  id=${fetchedLink.id}  status=${fetchedLink.status}`)
+
+  console.log('\nORDERS AND PAYMENT LINKS ARE CLEAR — a purchase can be authorized and paid.')
 }
 
 main().catch((e: unknown) => {

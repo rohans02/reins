@@ -102,6 +102,11 @@ model Transaction {
   decision          Decision @relation(fields: [decisionId], references: [id])
   razorpayOrderId   String
   razorpayPaymentId String?
+  /// Nullable by design. An order that succeeded must stand even if the link
+  /// call afterwards did not, so link failure leaves these empty and throws
+  /// nothing.
+  razorpayPaymentLinkId  String?
+  razorpayPaymentLinkUrl String?
   amountPaise       Int
   status            String // CREATED | PAID | FAILED
   createdAt         DateTime @default(now())

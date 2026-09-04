@@ -59,7 +59,7 @@ export interface AuthorizeRequest {
   /** Injectable clock, so the engine stays testable and pure. */
   now?: () => Date
   /** Seam so tests can exercise the full path without touching Razorpay. */
-  execute?: (decisionId: string) => Promise<{ razorpayOrderId: string }>
+  execute?: (decisionId: string) => Promise<{ razorpayOrderId: string; paymentLinkUrl?: string | null }>
 }
 
 export interface AuthorizeResult {
@@ -80,6 +80,8 @@ export interface AuthorizeResult {
   resolved?: ProposedAction
   /** Present only when the purchase was authorized AND executed. */
   razorpayOrderId?: string
+  /** Razorpay-hosted checkout for this order, when the link was created. */
+  paymentLinkUrl?: string | null
   /** Set when authorization succeeded but the payment call failed. */
   executionError?: string
 }
@@ -234,8 +236,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
   }
 
   try {
-    const { razorpayOrderId } = await execute(row.id)
-    return { ...base, razorpayOrderId }
+    const { razorpayOrderId, paymentLinkUrl } = await execute(row.id)
+    return { ...base, razorpayOrderId, paymentLinkUrl }
   } catch (err) {
     // Authorization succeeded but execution failed. The mandate state is intact
     // and the decision is already recorded, so a retry is safe and idempotent.

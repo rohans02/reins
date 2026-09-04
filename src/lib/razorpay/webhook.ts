@@ -31,6 +31,7 @@ export interface RazorpayWebhookEvent {
   payload: {
     payment?: { entity: { id: string; order_id: string; status: string } }
     order?: { entity: { id: string; status: string } }
+    payment_link?: { entity: { id: string; reference_id?: string | null; status: string } }
   }
 }
 
@@ -46,11 +47,19 @@ export interface RazorpayWebhookEvent {
 export async function handleWebhookEvent(
   event: RazorpayWebhookEvent,
 ): Promise<{ applied: boolean; reason: string }> {
-  if (event.event !== 'payment.captured' && event.event !== 'order.paid') {
+  const HANDLED = ['payment.captured', 'order.paid', 'payment_link.paid']
+  if (!HANDLED.includes(event.event)) {
     return { applied: false, reason: `ignored event ${event.event}` }
   }
 
-  const orderId = event.payload.payment?.entity.order_id ?? event.payload.order?.entity.id
+  // payment_link.paid carries the order id in `reference_id`, which is what
+  // execute.ts set when it created the link. The nested payment entity is the
+  // fallback, since Razorpay includes it on most link payloads too.
+  const orderId =
+    event.payload.payment?.entity.order_id ??
+    event.payload.order?.entity.id ??
+    event.payload.payment_link?.entity.reference_id ??
+    null
   const paymentId = event.payload.payment?.entity.id ?? null
   if (!orderId) return { applied: false, reason: 'event carried no order id' }
 

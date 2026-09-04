@@ -81,7 +81,13 @@ export type AgentEvent =
       explanation: string
       latencyMs: number
     }
-  | { type: 'purchase'; razorpayOrderId: string; amountPaise: number }
+  | {
+      type: 'purchase'
+      razorpayOrderId: string
+      amountPaise: number
+      /** Razorpay-hosted checkout, so a green card can offer a Pay link. */
+      paymentLinkUrl?: string | null
+    }
   | { type: 'error'; message: string }
   | {
       type: 'done'
@@ -365,7 +371,8 @@ async function* handlePurchase(args: {
   yield {
     type: 'purchase',
     razorpayOrderId: outcome.razorpayOrderId!,
-    amountPaise: action.amountPaise,
+    amountPaise: judged.amountPaise,
+    paymentLinkUrl: outcome.paymentLinkUrl ?? null,
   }
 
   return {

@@ -406,15 +406,25 @@ milliseconds recorded zero for every row.
 
 **Real.** The policy engine. Mandate signing and verification. The hash-chained
 ledger. The agent loop. Razorpay Orders, with real test-mode order ids visible in
-the dashboard. Webhook HMAC verification. Revocation. Every number on the Trust
-Report.
+the dashboard. **A real Razorpay Payment Link for every authorized purchase**,
+created immediately after the order and surfaced as a Pay button on the green
+card. Webhook HMAC verification, including `payment_link.paid`. Revocation. Every
+number on the Trust Report.
 
-**Simulated.** Bulk payment capture. Razorpay test mode cannot complete a payment
-server-side without a checkout surface, and full server-to-server creation needs
-an approval this project does not have. So the *event* is synthetic while the
-*verification* is not: the payload is Razorpay-shaped, signed with the real
-webhook secret, and verified by the same code path a genuine delivery would take.
-One payment in the demo is completed for real through a Payment Link.
+One payment in the demo is completed for real: a link is paid by hand with a test
+card, Razorpay delivers `payment_link.paid`, and the settled-spend counter moves
+with no simulator anywhere in that path.
+
+Link creation is deliberately non-fatal. An order that succeeded is an authorized
+purchase whether or not the link call after it did, so a failure there is logged,
+leaves both columns null, and never throws. A Razorpay hiccup must not read as a
+policy failure on stage.
+
+**Simulated.** Bulk payment capture for the orders nobody pays by hand. Razorpay
+test mode cannot complete a payment server-side without a checkout surface, so
+the *event* is synthetic while the *verification* is not: the payload is
+Razorpay-shaped, signed with the real webhook secret, and verified by the same
+code path a genuine delivery would take.
 
 **Fixtures.** The 12-SKU catalog and its four merchants.
 

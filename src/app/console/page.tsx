@@ -102,6 +102,7 @@ export default async function ConsolePage({
 
         explanation: d.explanation,
         razorpayOrderId: d.transaction?.razorpayOrderId ?? undefined,
+        paymentLinkUrl: d.transaction?.razorpayPaymentLinkUrl ?? null,
       }
       return [d.seq, row]
     }),

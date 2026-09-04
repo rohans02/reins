@@ -171,7 +171,11 @@ export function ConsoleClient({
           for (let i = next.length - 1; i >= 0; i--) {
             const row = next[i]
             if (row.kind === 'verdict' && !row.razorpayOrderId) {
-              next[i] = { ...row, razorpayOrderId: String(ev.razorpayOrderId) }
+              next[i] = {
+                ...row,
+                razorpayOrderId: String(ev.razorpayOrderId),
+                paymentLinkUrl: typeof ev.paymentLinkUrl === 'string' ? ev.paymentLinkUrl : null,
+              }
               break
             }
           }
