@@ -96,9 +96,9 @@ export function Sidebar({
       >
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <div className="font-semibold tracking-tight truncate">MandateGuard</div>
+            <div className="font-semibold tracking-tight truncate">Reins</div>
             <div className="text-[11px] text-muted-foreground truncate">
-              A Lakshman Rekha for AI agents
+              Agent spending, bounded
             </div>
           </div>
         )}

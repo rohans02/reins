@@ -40,7 +40,7 @@ export default async function SignInPage() {
     // the track past the viewport rather than truncating inside it.
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1.15fr_1fr]">
       <div className="min-w-0 flex items-center justify-center p-8 lg:p-12 border-b lg:border-b-0 lg:border-l border-border lg:order-2">
-        <div className="w-full max-w-xs space-y-6 mg-enter">
+        <div className="w-full max-w-xs space-y-6 rn-enter">
           <div className="space-y-1.5">
             <h2 className="text-xl font-semibold tracking-tight">Sign in</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -103,8 +103,8 @@ function Pitch() {
       />
 
       <div className="relative space-y-1">
-        <div className="text-lg font-semibold tracking-tight">MandateGuard</div>
-        <div className="text-[11px] text-muted-foreground">A Lakshman Rekha for AI agents</div>
+        <div className="text-lg font-semibold tracking-tight">Reins</div>
+        <div className="text-[11px] text-muted-foreground">Hand over the reins. Keep hold of them.</div>
       </div>
 
       <div className="relative min-w-0 space-y-8 py-12 max-w-lg">

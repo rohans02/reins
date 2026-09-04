@@ -50,7 +50,7 @@ async function main() {
   const startedAt = Date.now()
   const res = await ai.models.generateContent({
     model,
-    contents: 'Reply with exactly: MandateGuard connectivity check OK',
+    contents: 'Reply with exactly: Reins connectivity check OK',
   })
   const elapsed = Date.now() - startedAt
 

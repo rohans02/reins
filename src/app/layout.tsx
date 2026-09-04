@@ -13,7 +13,7 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'MandateGuard',
+  title: 'Reins',
   description: 'Bounded, revocable, audited spending authority for AI agents on Razorpay rails.',
 }
 
@@ -22,7 +22,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // localStorage cannot work here: the server never sees it, so the markup
   // disagrees on hydration, and the usual fix — a blocking inline <script> —
   // is exactly what React 19 warns about inside a component.
-  const dark = (await cookies()).get('mg-theme')?.value === 'dark'
+  const dark = (await cookies()).get('rn-theme')?.value === 'dark'
 
   // The sidebar shows live mandate state, so the layout loads it. Refreshed by
   // router.refresh() along with the page.

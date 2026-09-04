@@ -1,6 +1,6 @@
 # Architecture
 
-MandateGuard lets a person hand an AI agent real spending power on Razorpay
+Reins lets a person hand an AI agent real spending power on Razorpay
 rails, bounded by a signed mandate, revocable at any moment, and audited to the
 paisa.
 

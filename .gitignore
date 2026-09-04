@@ -42,7 +42,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# --- MandateGuard ---
+# --- Reins ---
 # SQLite database — regenerate with: npm run db:reset
 prisma/*.db
 prisma/*.db-journal

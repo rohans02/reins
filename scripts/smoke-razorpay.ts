@@ -23,7 +23,7 @@ async function main() {
     amount: 28500, // paise — matches our money invariant
     currency: 'INR',
     receipt: `smoke-${Date.now()}`,
-    notes: { source: 'mandateguard-smoke-test' },
+    notes: { source: 'reins-smoke-test' },
   })
   console.log(`   OK  id=${order.id}  status=${order.status}  amount=${order.amount}`)
 

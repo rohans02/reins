@@ -143,7 +143,7 @@ export function ActivityFeed({ rows }: { rows: FeedRow[] }) {
 
 function Row({ row }: { row: FeedRow }) {
   if (row.kind === 'say') {
-    return <p className="text-sm leading-relaxed mg-enter">{row.text}</p>
+    return <p className="text-sm leading-relaxed rn-enter">{row.text}</p>
   }
 
   if (row.kind === 'tool') {
@@ -153,7 +153,7 @@ function Row({ row }: { row: FeedRow }) {
       Object.entries(row.input).filter(([, v]) => v !== null && v !== undefined && v !== ''),
     )
     return (
-      <div className="mg-enter">
+      <div className="rn-enter">
         {/* Plain English first, so the agent reads as deliberate rather than as a
             black box firing opaque calls. The raw signature stays underneath for
             anyone who wants it. */}
@@ -172,7 +172,7 @@ function Row({ row }: { row: FeedRow }) {
   if (row.kind === 'plan') {
     const total = row.items.reduce((sum, i) => sum + i.amountPaise, 0)
     return (
-      <div className="mg-enter rounded-lg border border-border border-l-[3px] border-l-foreground/30 bg-card p-4 space-y-3">
+      <div className="rn-enter rounded-lg border border-border border-l-[3px] border-l-foreground/30 bg-card p-4 space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Planning to buy
@@ -215,7 +215,7 @@ function Row({ row }: { row: FeedRow }) {
     return (
       <div
         className={cn(
-          'font-mono text-[11px] mg-enter',
+          'font-mono text-[11px] rn-enter',
           row.tone === 'bad' ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
@@ -231,8 +231,8 @@ function Row({ row }: { row: FeedRow }) {
       className={cn(
         'rounded-lg border bg-card',
         blocked
-          ? 'mg-block-enter border-destructive/50 border-l-[4px] border-l-destructive p-4 shadow-sm'
-          : 'mg-enter border-border border-l-[3px] border-l-emerald-600 p-3',
+          ? 'rn-block-enter border-destructive/50 border-l-[4px] border-l-destructive p-4 shadow-sm'
+          : 'rn-enter border-border border-l-[3px] border-l-emerald-600 p-3',
       )}
     >
       <div className="flex items-center justify-between gap-3">

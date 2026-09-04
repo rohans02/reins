@@ -78,7 +78,7 @@ export function LedgerSlideOver() {
             onClick={() => setOpen(false)}
           />
 
-          <aside className="relative w-full max-w-3xl bg-background border-l border-border flex flex-col shadow-2xl mg-enter">
+          <aside className="relative w-full max-w-3xl bg-background border-l border-border flex flex-col shadow-2xl rn-enter">
             <header className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
               <div>
                 <h2 className="font-semibold tracking-tight">Audit ledger</h2>

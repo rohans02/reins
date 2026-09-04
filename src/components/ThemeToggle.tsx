@@ -28,7 +28,7 @@ export function ThemeToggle({ dark: initialDark }: { dark: boolean; collapsed?: 
     setDark(next)
     document.documentElement.classList.toggle('dark', next)
     // One year, path-wide, Lax — this is a display preference, nothing sensitive.
-    document.cookie = `mg-theme=${next ? 'dark' : 'light'}; path=/; max-age=31536000; SameSite=Lax`
+    document.cookie = `rn-theme=${next ? 'dark' : 'light'}; path=/; max-age=31536000; SameSite=Lax`
   }
 
   return (

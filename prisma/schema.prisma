@@ -1,4 +1,4 @@
-// MandateGuard data model.
+// Reins data model.
 // INVARIANT: every money field is an Int of PAISE. Never a Float, never rupees.
 // SQLite has no enums and no arrays: status/verdict are Strings, lists are JSON strings.
 

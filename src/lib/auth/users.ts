@@ -14,7 +14,7 @@
 /** Matches `Mandate.userId`'s default, so existing rows belong to this user. */
 export const DEFAULT_USER_ID = 'demo-user'
 
-export const COOKIE_NAME = 'mg-user'
+export const COOKIE_NAME = 'rn-user'
 
 /**
  * The people the demo can act as. A real build reads this from a database.

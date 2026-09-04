@@ -1,6 +1,6 @@
-# MandateGuard
+# Reins
 
-**A Lakshman Rekha for AI agents.** The authorization layer that lets you hand an AI agent
+**Hand over the reins. Keep hold of them.** The authorization layer that gives an AI agent
 real spending power on Razorpay rails: bounded by a signed mandate, enforced in code rather
 than in a prompt, revocable in one click, and audited to the paisa.
 

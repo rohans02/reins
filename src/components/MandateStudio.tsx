@@ -282,7 +282,7 @@ function Signed({
 }) {
   return (
     <div className="p-8 max-w-2xl mx-auto">
-      <div className="rounded-lg border border-border bg-card p-8 space-y-6 mg-block-enter">
+      <div className="rounded-lg border border-border bg-card p-8 space-y-6 rn-block-enter">
         <div className="flex items-center gap-3">
           <span
             aria-hidden

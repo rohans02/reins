@@ -53,7 +53,7 @@ let warned = false
 function warnOnce(lines: string[]) {
   if (warned) return
   warned = true
-  console.warn(['', '[mandateguard] ' + lines[0], ...lines.slice(1), ''].join('\n'))
+  console.warn(['', '[reins] ' + lines[0], ...lines.slice(1), ''].join('\n'))
 }
 
 /** True when sign-in is required. False means the demo identities are in use. */
