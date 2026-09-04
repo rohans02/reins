@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Layers } from 'lucide-react'
 
 /**
@@ -12,8 +11,9 @@ import { Layers } from 'lucide-react'
  * element on the screen — this is not the place to demonstrate a custom
  * popover, and a native select is keyboard-accessible without any of the work.
  *
- * With a single mandate it collapses to a label. A dropdown offering one choice
- * is furniture, and the console is the one screen that has to stay quiet.
+ * With a single mandate it renders NOTHING. A dropdown offering one choice is
+ * furniture, and a "1 mandate" link is furniture with a destination — both put
+ * chrome on the one screen that has to stay quiet while the block lands.
  */
 
 export interface SwitchableMandate {
@@ -38,20 +38,10 @@ export function MandateSwitcher({
 }) {
   const router = useRouter()
 
-  if (options.length <= 1) {
-    return (
-      <Link
-        href="/mandates"
-        title="Manage mandates"
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      >
-        <Layers className="size-3.5" />
-        <span>1 mandate</span>
-      </Link>
-    )
-  }
-
   const liveCount = options.filter((m) => m.live).length
+
+  // Only worth a control when there is genuinely a choice to make.
+  if (liveCount <= 1) return null
 
   return (
     <div className="flex items-center gap-1.5">

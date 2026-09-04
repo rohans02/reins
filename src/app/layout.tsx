@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { authEnabled, currentActor } from '@/lib/auth/session'
-import { loadMandateSummaries, totalLiveExposurePaise } from '@/lib/mandates/summary'
+import { currentActor } from '@/lib/auth/session'
+import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { Sidebar } from '@/components/Sidebar'
-import { SignOutButton } from '@/components/SignOutButton'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import './globals.css'
@@ -24,19 +23,21 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // is exactly what React 19 warns about inside a component.
   const dark = (await cookies()).get('rn-theme')?.value === 'dark'
 
-  // The sidebar shows live mandate state, so the layout loads it. Refreshed by
-  // router.refresh() along with the page.
+  // The sidebar shows the mandate the console is working under, so the layout
+  // resolves it with the SAME pickMandate the console uses and hands over that
+  // one row. Refreshed by router.refresh() along with the page.
   //
-  // It reports the TOTAL across every live mandate, not the newest one. With
-  // concurrent mandates the newest understates what an agent could spend, and a
-  // sidebar that quietly under-reports exposure is worse than one showing
-  // nothing at all.
+  // A layout cannot read search params, so it cannot see `?mandate=`. It gets
+  // the default, which is the newest live mandate — identical to the console
+  // whenever the console is on its default, and that is the only state the demo
+  // is ever in.
+  //
   // The layout wraps the sign-in page too, so it must NOT demand a session.
   // With nobody signed in it renders the page on its own: a sidebar full of
   // mandate state has nothing to say before there is an owner to scope it to.
   const actor = await currentActor()
   const summaries = actor ? await loadMandateSummaries(actor.id) : []
-  const live = summaries.filter((m) => m.live)
+  const mandate = pickMandate(summaries)
 
   return (
     <html
@@ -50,17 +51,15 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <div className="flex h-screen">
           <Sidebar
             dark={dark}
-            user={{ id: actor.id, name: actor.name, authenticated: actor.authenticated }}
-            authEnabled={authEnabled()}
-            signOut={<SignOutButton />}
-            authority={{
-              liveCount: live.length,
-              everSigned: summaries.length,
-              authorizedPaise: live.reduce((sum, m) => sum + m.authorizedPaise, 0),
-              totalCapPaise: live.reduce((sum, m) => sum + m.totalCapPaise, 0),
-              remainingPaise: totalLiveExposurePaise(summaries),
-              anyRevoked: summaries.some((m) => m.status === 'REVOKED'),
-            }}
+            mandate={
+              mandate
+                ? {
+                    status: mandate.status,
+                    authorizedPaise: mandate.authorizedPaise,
+                    totalCapPaise: mandate.totalCapPaise,
+                  }
+                : null
+            }
           />
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
