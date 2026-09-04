@@ -7,7 +7,12 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MandatePanel, type MandateView } from '@/components/MandatePanel'
-import { ActivityFeed, type FeedRow, type PlannedItem } from '@/components/ActivityFeed'
+import {
+  ActivityFeed,
+  type FeedRow,
+  type MerchantBasket,
+  type PlannedItem,
+} from '@/components/ActivityFeed'
 import type { ClaimedFields } from '@/lib/claimed'
 import { LedgerSlideOver } from '@/components/LedgerSlideOver'
 import { MandateSwitcher, type SwitchableMandate } from '@/components/MandateSwitcher'
@@ -171,16 +176,19 @@ export function ConsoleClient({
           for (let i = next.length - 1; i >= 0; i--) {
             const row = next[i]
             if (row.kind === 'verdict' && !row.razorpayOrderId) {
-              next[i] = {
-                ...row,
-                razorpayOrderId: String(ev.razorpayOrderId),
-                paymentLinkUrl: typeof ev.paymentLinkUrl === 'string' ? ev.paymentLinkUrl : null,
-              }
+              next[i] = { ...row, razorpayOrderId: String(ev.razorpayOrderId) }
               break
             }
           }
           return next
         })
+        break
+
+      case 'settlement':
+        setLiveRows((r) => [
+          ...r,
+          { kind: 'settlement', id, baskets: (ev.baskets ?? []) as MerchantBasket[] },
+        ])
         break
 
       case 'error':

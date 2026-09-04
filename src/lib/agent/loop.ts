@@ -4,6 +4,7 @@ import { canonicalHash } from '@/lib/mandate/canonical'
 import { MandateRulesSchema, type ProposedAction } from '@/lib/mandate/schema'
 import { append } from '@/lib/ledger/append'
 import { authorizeAndExecute, loadLedgerState, MandateOwnershipError } from '@/lib/authorize'
+import { settleRun, type MerchantBasket } from '@/lib/razorpay/settle'
 import { AGENT_TOOLS, TOOL_NAMES } from './tools'
 import { buyerAgentSystemPrompt, wrapUntrusted, type PastPurchase } from './prompts'
 import type { CheckResult } from '@/lib/policy/engine'
@@ -41,6 +42,7 @@ export type TranscriptEntry =
   | { t: 'tool'; name: string; input: Record<string, unknown> }
   | { t: 'plan'; summary: string; items: PlannedItem[] }
   | { t: 'verdict'; seq: number }
+  | { t: 'settlement'; baskets: MerchantBasket[] }
   | { t: 'system'; text: string }
 
 // 14, not 12. announce_plan spends a turn before any buying starts, and at 12
@@ -81,13 +83,15 @@ export type AgentEvent =
       explanation: string
       latencyMs: number
     }
-  | {
-      type: 'purchase'
-      razorpayOrderId: string
-      amountPaise: number
-      /** Razorpay-hosted checkout, so a green card can offer a Pay link. */
-      paymentLinkUrl?: string | null
-    }
+  | { type: 'purchase'; razorpayOrderId: string; amountPaise: number }
+  /**
+   * What is owed, per merchant, once the run is over.
+   *
+   * Settlement is grouped by shop rather than by item, because nobody pays per
+   * item. It arrives once at the end rather than alongside each purchase, since
+   * a shop's basket is not known until the agent stops shopping.
+   */
+  | { type: 'settlement'; baskets: MerchantBasket[] }
   | { type: 'error'; message: string }
   | {
       type: 'done'
@@ -254,6 +258,16 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   // the script. A canned "basket complete, all within the mandate" was still
   // printing after refusals and after a mid-run revoke had killed everything
   // following it, which made the transcript disagree with the ledger beside it.
+  // Settlement runs after the agent has stopped, when each shop's basket is
+  // finally known. It cannot fail the run: every order is already real and
+  // already authorized, so a link that could not be created is an inconvenience
+  // rather than a policy failure.
+  const baskets = await settleRun(run.id)
+  if (baskets.length > 0) {
+    await record({ t: 'settlement', baskets })
+    yield { type: 'settlement', baskets }
+  }
+
   const closing =
     `Done: ${purchases} ${purchases === 1 ? 'purchase' : 'purchases'} authorized, ` +
     `${blocked} refused.`
@@ -372,7 +386,6 @@ async function* handlePurchase(args: {
     type: 'purchase',
     razorpayOrderId: outcome.razorpayOrderId!,
     amountPaise: judged.amountPaise,
-    paymentLinkUrl: outcome.paymentLinkUrl ?? null,
   }
 
   return {

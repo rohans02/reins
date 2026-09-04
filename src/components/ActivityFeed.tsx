@@ -24,8 +24,16 @@ export interface PlannedItem {
   amountPaise: number
 }
 
+export interface MerchantBasket {
+  merchantId: string
+  amountPaise: number
+  itemCount: number
+  paymentLinkUrl: string | null
+}
+
 export type FeedRow =
   | { kind: 'say'; id: string; text: string }
+  | { kind: 'settlement'; id: string; baskets: MerchantBasket[] }
   | { kind: 'tool'; id: string; name: string; input: Record<string, unknown> }
   | { kind: 'plan'; id: string; summary: string; items: PlannedItem[] }
   | {
@@ -41,8 +49,6 @@ export type FeedRow =
       amountPaise: number
       latencyUs: number
       razorpayOrderId?: string
-      /** Razorpay-hosted checkout, when a link was created for this order. */
-      paymentLinkUrl?: string | null
       /** The deterministic refusal sentence. Empty or absent on ALLOW. */
       explanation?: string | null
       /** What the agent said it was buying, when it differed from the catalog. */
@@ -220,6 +226,58 @@ function Row({ row }: { row: FeedRow }) {
     )
   }
 
+  if (row.kind === 'settlement') {
+    const total = row.baskets.reduce((sum, b) => sum + b.amountPaise, 0)
+    return (
+      <div className="rn-enter rounded-lg border border-border border-l-[3px] border-l-emerald-600 bg-card p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            To pay
+          </span>
+          <span className="font-mono text-sm font-semibold tabular-nums shrink-0">
+            {formatINR(total)}
+          </span>
+        </div>
+
+        {/* One row per SHOP, not per item. Nobody pays per item, and the orders
+            behind each row were authorized individually. */}
+        <ul className="space-y-1.5">
+          {row.baskets.map((b) => (
+            <li key={b.merchantId} className="flex items-center justify-between gap-3 text-xs">
+              <span className="min-w-0 truncate">
+                <span className="font-mono">{b.merchantId}</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  {b.itemCount} item{b.itemCount === 1 ? '' : 's'}
+                </span>
+              </span>
+              <span className="flex items-center gap-2 shrink-0">
+                <span className="font-mono tabular-nums">{formatINR(b.amountPaise)}</span>
+                {b.paymentLinkUrl ? (
+                  <a
+                    href={b.paymentLinkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-emerald-600 transition-colors hover:bg-accent"
+                  >
+                    Pay
+                  </a>
+                ) : (
+                  <span className="font-mono text-[10px] text-muted-foreground">no link</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="text-[11px] text-muted-foreground">
+          One Razorpay Payment Link per merchant. Paying one settles every order in that
+          basket.
+        </p>
+      </div>
+    )
+  }
+
   if (row.kind === 'system') {
     return (
       <div
@@ -313,18 +371,6 @@ function Row({ row }: { row: FeedRow }) {
         <span>#{row.seq}</span>
         <span>{row.latencyUs}µs</span>
         {row.razorpayOrderId && <span className="truncate">{row.razorpayOrderId}</span>}
-        {/* A real Razorpay-hosted checkout for this exact order. The authorized
-            purchase can actually be paid, not merely recorded. */}
-        {row.paymentLinkUrl && (
-          <a
-            href={row.paymentLinkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-emerald-600 transition-colors hover:bg-accent"
-          >
-            Pay
-          </a>
-        )}
       </div>
     </div>
   )

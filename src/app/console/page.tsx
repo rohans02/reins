@@ -102,7 +102,6 @@ export default async function ConsolePage({
 
         explanation: d.explanation,
         razorpayOrderId: d.transaction?.razorpayOrderId ?? undefined,
-        paymentLinkUrl: d.transaction?.razorpayPaymentLinkUrl ?? null,
       }
       return [d.seq, row]
     }),
@@ -125,6 +124,9 @@ export default async function ConsolePage({
           }
           if (entry.t === 'plan') {
             return [{ kind: 'plan', id: `t-${i}`, summary: entry.summary, items: entry.items }]
+          }
+          if (entry.t === 'settlement') {
+            return [{ kind: 'settlement', id: `t-${i}`, baskets: entry.baskets }]
           }
           const row = verdictBySeq.get(entry.seq)
           return row ? [row] : []

@@ -45,8 +45,6 @@ export interface LedgerRow {
   latencyUs: number
   hash: string
   razorpayOrderId: string | null
-  /** Razorpay-hosted checkout, when a link was created for this order. */
-  paymentLinkUrl?: string | null
 }
 
 type Filter = 'ALL' | 'ALLOW' | 'BLOCK'

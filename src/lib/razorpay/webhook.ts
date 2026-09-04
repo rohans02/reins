@@ -60,9 +60,9 @@ export async function handleWebhookEvent(
   // is the LINK's internal order, not ours. Preferring it meant looking up an id
   // this system has never seen, answering 200, and silently applying nothing.
   //
-  // `reference_id` is the one we set ourselves in execute.ts, so it is the only
-  // id guaranteed to be ours. Trying all of them and matching on whichever
-  // resolves keeps every event shape working without ranking them by guesswork.
+  // `reference_id` is the one we set ourselves, so it is the only id guaranteed
+  // to be ours. Trying all of them and matching on whichever resolves keeps
+  // every event shape working without ranking them by guesswork.
   const candidates = [
     event.payload.payment_link?.entity.reference_id,
     event.payload.payment?.entity.order_id,
@@ -70,31 +70,51 @@ export async function handleWebhookEvent(
   ].filter((id): id is string => Boolean(id))
 
   const paymentId = event.payload.payment?.entity.id ?? null
-  if (candidates.length === 0) return { applied: false, reason: 'event carried no order id' }
+  if (candidates.length === 0) return { applied: false, reason: 'event carried no reference' }
 
-  const txn = await prisma.transaction.findFirst({
-    where: { razorpayOrderId: { in: candidates } },
+  // ONE PAYMENT, POSSIBLY MANY ORDERS.
+  //
+  // A merchant link covers a whole basket, so `reference_id` is a group id and
+  // settling it means settling every transaction in that group. An order id is
+  // still accepted, for `payment.captured` and `order.paid`, where the mapping
+  // really is one to one.
+  const group = await prisma.transaction.findMany({
+    where: {
+      OR: [
+        { paymentGroupId: { in: candidates } },
+        { razorpayOrderId: { in: candidates } },
+      ],
+    },
   })
-  if (!txn) {
-    return { applied: false, reason: `no transaction for order ${candidates.join(' or ')}` }
+
+  if (group.length === 0) {
+    return { applied: false, reason: `no transaction for ${candidates.join(' or ')}` }
   }
 
   // Idempotent: Razorpay retries webhooks, and a second delivery must not
-  // double-count the spend.
-  if (txn.status === 'PAID') return { applied: false, reason: 'already applied' }
+  // double-count. Anything already paid is dropped rather than re-credited, so a
+  // partially applied group still finishes correctly.
+  const unpaid = group.filter((t) => t.status !== 'PAID')
+  if (unpaid.length === 0) return { applied: false, reason: 'already applied' }
+
+  const total = unpaid.reduce((sum, t) => sum + t.amountPaise, 0)
+  const mandateId = await mandateIdForTransaction(unpaid[0].decisionId)
 
   await prisma.$transaction([
-    prisma.transaction.update({
-      where: { id: txn.id },
+    prisma.transaction.updateMany({
+      where: { id: { in: unpaid.map((t) => t.id) } },
       data: { status: 'PAID', razorpayPaymentId: paymentId },
     }),
     prisma.mandate.update({
-      where: { id: (await mandateIdForTransaction(txn.decisionId)) },
-      data: { spentPaise: { increment: txn.amountPaise } },
+      where: { id: mandateId },
+      data: { spentPaise: { increment: total } },
     }),
   ])
 
-  return { applied: true, reason: `spend ledger credited ${txn.amountPaise} paise` }
+  return {
+    applied: true,
+    reason: `spend ledger credited ${total} paise across ${unpaid.length} order(s)`,
+  }
 }
 
 async function mandateIdForTransaction(decisionId: string): Promise<string> {

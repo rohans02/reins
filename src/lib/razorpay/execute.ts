@@ -23,16 +23,6 @@ import { razorpayClient } from './client'
  * purchase cannot be paid for twice.
  */
 
-/**
- * How many Payment Links to create per mandate before stopping.
- *
- * Razorpay throttles link creation, and a seven-purchase run hit HTTP 429 on the
- * last two. Four keeps a comfortable margin under the limit and is more than the
- * demo needs, since exactly one link gets paid on camera. Orders are unaffected:
- * every authorized purchase still creates one.
- */
-const PAYMENT_LINK_LIMIT = Number(process.env.PAYMENT_LINK_LIMIT ?? 4)
-
 export interface ExecutionResult {
   razorpayOrderId: string
   amountPaise: number
@@ -89,89 +79,21 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
     },
   })
 
-  // A Payment Link alongside the order, so the authorization can actually be
-  // paid rather than only recorded. `reference_id` is the order id, which is how
-  // the webhook maps a payment_link.paid event back to this transaction.
+  // NO PAYMENT LINK HERE. Links are created per MERCHANT when the run ends, in
+  // `settleRun`, because nobody pays per item — you pay a shop, and the basket
+  // for a shop is not known until the agent stops shopping.
   //
-  // THE ORDER STANDS IF THIS FAILS. An authorized purchase whose link call
-  // errored is still an authorized purchase, and throwing here would turn a
-  // Razorpay hiccup into a policy failure on stage.
-  //
-  // CAPPED PER MANDATE, because Razorpay rate-limits link creation and a full
-  // run of seven reliably tripped it around the sixth. Failing gracefully was
-  // correct but it left the last cards with no Pay button and no explanation, so
-  // the honest fix is to stay under the limit rather than walk into it. Only one
-  // link is ever paid, so the first few are all the demo needs.
-  let paymentLinkId: string | null = null
-  let paymentLinkUrl: string | null = null
-
-  const linksSoFar = await prisma.transaction.count({
-    where: {
-      razorpayPaymentLinkId: { not: null },
-      decision: { mandateId: decision.mandateId },
-    },
-  })
-
-  if (linksSoFar >= PAYMENT_LINK_LIMIT) {
-    await prisma.transaction.create({
-      data: {
-        decisionId: decision.id,
-        razorpayOrderId: order.id,
-        amountPaise: requested.amountPaise,
-        status: 'CREATED',
-      },
-    })
-    return { razorpayOrderId: order.id, amountPaise: requested.amountPaise, reused: false }
-  }
-
-  try {
-    // The SDK's typings mark `customer` as required on the create body. The API
-    // does not: a link with notifications switched off needs nobody to notify,
-    // and inventing a name, email and phone to satisfy a type would put
-    // fabricated personal data on a real Razorpay object. So the call is exactly
-    // what the API wants and the over-strict type is cast past, once, here.
-    const params = {
-      amount: requested.amountPaise,
-      currency: 'INR',
-      reference_id: order.id,
-      description: `${requested.itemId} from ${requested.merchantId}`,
-      notes: {
-        mandateId: decision.mandateId,
-        decisionSeq: String(decision.seq),
-        itemId: requested.itemId,
-        merchantId: requested.merchantId,
-      },
-      notify: { sms: false, email: false },
-      reminder_enable: false,
-    }
-
-    const link = await razorpayClient().paymentLink.create(
-      params as unknown as Parameters<ReturnType<typeof razorpayClient>['paymentLink']['create']>[0],
-    )
-    paymentLinkId = link.id
-    paymentLinkUrl = link.short_url
-  } catch (err) {
-    console.warn(
-      `[reins] payment link creation failed for order ${order.id}; the order stands.`,
-      err instanceof Error ? err.message : err,
-    )
-  }
-
+  // That split is also the honest one: an order is an authorization artefact and
+  // belongs to this function, while a link is settlement and belongs after the
+  // decisions are all in.
   await prisma.transaction.create({
     data: {
       decisionId: decision.id,
       razorpayOrderId: order.id,
-      razorpayPaymentLinkId: paymentLinkId,
-      razorpayPaymentLinkUrl: paymentLinkUrl,
       amountPaise: requested.amountPaise,
       status: 'CREATED',
     },
   })
 
-  return {
-    razorpayOrderId: order.id,
-    amountPaise: requested.amountPaise,
-    paymentLinkUrl,
-    reused: false,
-  }
+  return { razorpayOrderId: order.id, amountPaise: requested.amountPaise, reused: false }
 }

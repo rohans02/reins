@@ -406,19 +406,31 @@ milliseconds recorded zero for every row.
 
 **Real.** The policy engine. Mandate signing and verification. The hash-chained
 ledger. The agent loop. Razorpay Orders, with real test-mode order ids visible in
-the dashboard. **A real Razorpay Payment Link for every authorized purchase**,
-created immediately after the order and surfaced as a Pay button on the green
-card. Webhook HMAC verification, including `payment_link.paid`. Revocation. Every
+the dashboard, one per authorized purchase. **A real Razorpay Payment Link per
+merchant**, created when the run ends and surfaced as one Pay button per shop. Webhook HMAC verification, including `payment_link.paid`. Revocation. Every
 number on the Trust Report.
 
 One payment in the demo is completed for real: a link is paid by hand with a test
 card, Razorpay delivers `payment_link.paid`, and the settled-spend counter moves
 with no simulator anywhere in that path.
 
+**Settlement is grouped by shop, not by item.** Nobody pays per item; you pay a
+shop. So orders are created the instant the engine authorizes, and links are
+created afterwards in `settleRun`, once the basket for each merchant is finally
+known. One link therefore covers several orders, which is why `reference_id`
+carries a generated group id rather than an order id, and why the webhook settles
+every transaction in a group and credits their sum.
+
+That grouping also removed a problem rather than working around it. Razorpay
+throttles link creation, and seven links in fifteen seconds tripped it; two or
+three do not. An earlier version capped the count instead, which worked but left
+some cards with a Pay button and some without, for reasons nothing on screen
+explained.
+
 Link creation is deliberately non-fatal. An order that succeeded is an authorized
-purchase whether or not the link call after it did, so a failure there is logged,
-leaves both columns null, and never throws. A Razorpay hiccup must not read as a
-policy failure on stage.
+purchase whether or not the link call after it did, so a failure there is logged
+and skipped, never thrown. A Razorpay hiccup must not read as a policy failure on
+stage.
 
 **Simulated.** Bulk payment capture for the orders nobody pays by hand. Razorpay
 test mode cannot complete a payment server-side without a checkout surface, so

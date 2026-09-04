@@ -102,9 +102,17 @@ model Transaction {
   decision          Decision @relation(fields: [decisionId], references: [id])
   razorpayOrderId   String
   razorpayPaymentId String?
+  /// ONE Payment Link can cover SEVERAL transactions.
+  ///
+  /// Links are created per merchant at the end of a run, not per purchase,
+  /// because nobody pays per item — you pay a shop. Every transaction in a
+  /// merchant's basket carries the same group id and the same link, and the
+  /// webhook settles the whole group when that link is paid.
+  ///
   /// Nullable by design. An order that succeeded must stand even if the link
   /// call afterwards did not, so link failure leaves these empty and throws
   /// nothing.
+  paymentGroupId         String?
   razorpayPaymentLinkId  String?
   razorpayPaymentLinkUrl String?
   amountPaise       Int

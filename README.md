@@ -155,12 +155,10 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 
 - **Payment capture is partly simulated, and the part that is not is stated exactly.**
   Razorpay test mode cannot complete a payment server-side without a checkout surface.
-  **Orders are real**, with real `order_id`s in the Razorpay dashboard, and authorized
-  purchases also create **real Payment Links** whose `short_url` appears as a Pay button on
-  the green card. Links are capped per mandate (`PAYMENT_LINK_LIMIT`, default 4) because
-  Razorpay throttles link creation and a full run tripped it. Every purchase still creates
-  an order, and only one link is ever paid. That one is paid by hand with a test card, and it
-  payment settles through the real `payment_link.paid` webhook into the real HMAC
+  **Orders are real**, with real `order_id`s in the Razorpay dashboard, one per authorized
+  purchase. Settlement is grouped **per merchant**: when a run ends, one real Payment Link is
+  created for each shop's basket, because nobody pays per item. Paying one link settles every
+  order in that basket through the real `payment_link.paid` webhook and the real HMAC
   verification path, with no simulator involved. Bulk capture for the remaining orders is
   emitted by `src/lib/razorpay/simulator.ts`, which posts a Razorpay-shaped webhook signed
   with the **real** webhook secret. Those events are synthetic. The verification is not, and
