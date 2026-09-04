@@ -32,10 +32,18 @@ import { razorpayClient } from './client'
  * failures are logged and skipped, never thrown.
  */
 
+export interface BasketItem {
+  itemId: string
+  /** Catalog name, so the panel reads as a receipt rather than a list of slugs. */
+  name: string
+  amountPaise: number
+}
+
 export interface MerchantBasket {
   merchantId: string
   amountPaise: number
   itemCount: number
+  items: BasketItem[]
   paymentLinkUrl: string | null
 }
 
@@ -63,18 +71,37 @@ export async function settleRun(runId: string): Promise<MerchantBasket[]> {
   // the engine judged. The agent's claimed merchant is evidence and is never
   // used to decide who gets paid.
   const byMerchant = new Map<string, typeof transactions>()
+  const itemIdOf = new Map<string, string>()
+
   for (const t of transactions) {
-    const { merchantId } = JSON.parse(t.decision.requestedAction) as { merchantId?: string }
+    const { merchantId, itemId } = JSON.parse(t.decision.requestedAction) as {
+      merchantId?: string
+      itemId?: string
+    }
     if (!merchantId) continue
+    if (itemId) itemIdOf.set(t.id, itemId)
     const bucket = byMerchant.get(merchantId) ?? []
     bucket.push(t)
     byMerchant.set(merchantId, bucket)
   }
 
+  // Names come from the catalog, in one query, for the same reason prices do:
+  // the ledger stores what was bought, and the catalog is what knows how to say
+  // it in words. An id that has since left the catalog falls back to the id.
+  const catalog = await prisma.catalogItem.findMany({
+    where: { id: { in: [...new Set(itemIdOf.values())] } },
+    select: { id: true, name: true },
+  })
+  const nameOf = new Map(catalog.map((c) => [c.id, c.name]))
+
   const baskets: MerchantBasket[] = []
 
   for (const [merchantId, rows] of byMerchant) {
     const amountPaise = rows.reduce((sum, r) => sum + r.amountPaise, 0)
+    const items: BasketItem[] = rows.map((r) => {
+      const itemId = itemIdOf.get(r.id) ?? ''
+      return { itemId, name: nameOf.get(itemId) ?? itemId, amountPaise: r.amountPaise }
+    })
 
     // Idempotent: a run settled twice must not create a second link.
     const existing = rows.find((r) => r.razorpayPaymentLinkUrl)
@@ -83,6 +110,7 @@ export async function settleRun(runId: string): Promise<MerchantBasket[]> {
         merchantId,
         amountPaise,
         itemCount: rows.length,
+        items,
         paymentLinkUrl: existing.razorpayPaymentLinkUrl,
       })
       continue
@@ -128,6 +156,7 @@ export async function settleRun(runId: string): Promise<MerchantBasket[]> {
         merchantId,
         amountPaise,
         itemCount: rows.length,
+        items,
         paymentLinkUrl: link.short_url,
       })
     } catch (err) {
@@ -135,7 +164,7 @@ export async function settleRun(runId: string): Promise<MerchantBasket[]> {
         `[reins] payment link failed for ${merchantId} on run ${runId}; the orders stand.`,
         err instanceof Error ? err.message : err,
       )
-      baskets.push({ merchantId, amountPaise, itemCount: rows.length, paymentLinkUrl: null })
+      baskets.push({ merchantId, amountPaise, itemCount: rows.length, items, paymentLinkUrl: null })
     }
   }
 

@@ -24,10 +24,17 @@ export interface PlannedItem {
   amountPaise: number
 }
 
+export interface BasketItem {
+  itemId: string
+  name: string
+  amountPaise: number
+}
+
 export interface MerchantBasket {
   merchantId: string
   amountPaise: number
   itemCount: number
+  items: BasketItem[]
   paymentLinkUrl: string | null
 }
 
@@ -257,31 +264,52 @@ function Row({ row }: { row: FeedRow }) {
               behind each row were authorized individually. */}
           <ul className="divide-y divide-border border-y border-border">
             {row.baskets.map((b) => (
-              <li key={b.merchantId} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0 truncate text-sm">
-                  <span className="font-mono">{b.merchantId}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {' '}
-                    · {b.itemCount} item{b.itemCount === 1 ? '' : 's'}
+              <li key={b.merchantId} className="py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-sm">
+                    <span className="font-mono">{b.merchantId}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {' '}
+                      · {b.itemCount} item{b.itemCount === 1 ? '' : 's'}
+                    </span>
                   </span>
-                </span>
-                <span className="flex items-center gap-3 shrink-0">
-                  <span className="font-mono text-sm tabular-nums">
-                    {formatINR(b.amountPaise)}
+                  <span className="flex items-center gap-3 shrink-0">
+                    <span className="font-mono text-sm tabular-nums">
+                      {formatINR(b.amountPaise)}
+                    </span>
+                    {b.paymentLinkUrl ? (
+                      <a
+                        href={b.paymentLinkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        Pay
+                      </a>
+                    ) : (
+                      <span className="font-mono text-[10px] text-muted-foreground">no link</span>
+                    )}
                   </span>
-                  {b.paymentLinkUrl ? (
-                    <a
-                      href={b.paymentLinkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      Pay
-                    </a>
-                  ) : (
-                    <span className="font-mono text-[10px] text-muted-foreground">no link</span>
-                  )}
-                </span>
+                </div>
+
+                {/* What is actually in the basket. A merchant slug and a total
+                    tell you the shape of the payment; the names tell you what
+                    you are about to buy, which is the thing a person checks. */}
+                {b.items.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5 pl-3 border-l border-border">
+                    {b.items.map((item, i) => (
+                      <li
+                        key={`${item.itemId}-${i}`}
+                        className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground"
+                      >
+                        <span className="min-w-0 truncate">{item.name}</span>
+                        <span className="font-mono tabular-nums shrink-0">
+                          {formatINR(item.amountPaise)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
