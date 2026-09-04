@@ -4,6 +4,7 @@ import { MANDATE_DRAFTER_SYSTEM_PROMPT } from '@/lib/agent/prompts'
 import { selectProvider } from '@/lib/agent/select'
 import { geminiApiKey, geminiLocation, geminiModelId, geminiVertexProject } from '@/lib/agent/gemini'
 import { prisma } from '@/lib/db'
+import { currentUserId } from '@/lib/auth/session'
 
 /**
  * POST /api/mandates/draft — plain-language intent to a structured mandate draft.
@@ -38,6 +39,14 @@ const MANDATE_SCHEMA = {
 } as const
 
 export async function POST(request: Request) {
+  // Guarded BEFORE the provider is chosen, because this is the one endpoint that
+  // spends money on someone else's behalf: an unauthenticated caller reaching it
+  // burns the operator's model credits, one request at a time, with nothing in
+  // the product to show for it.
+  if (!(await currentUserId())) {
+    return Response.json({ error: 'unauthenticated' }, { status: 401 })
+  }
+
   const provider = selectProvider()
 
   if (provider === 'scripted') {

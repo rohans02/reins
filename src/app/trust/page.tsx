@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { requireActor } from '@/lib/auth/guard'
 import { TrustReport } from '@/components/TrustReport'
 import type { EvalMetrics } from '@/lib/eval/runner'
 
@@ -10,6 +11,10 @@ import type { EvalMetrics } from '@/lib/eval/runner'
 export const dynamic = 'force-dynamic'
 
 export default async function TrustPage() {
+  // Guarded for the same reason as every other screen: with OAuth on, a page
+  // that renders without a session is an inconsistency a judge will find.
+  await requireActor()
+
   const run = await prisma.evalRun.findFirst({ orderBy: { createdAt: 'desc' } })
 
   return (

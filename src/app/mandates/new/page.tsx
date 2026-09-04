@@ -1,3 +1,4 @@
+import { requireActor } from '@/lib/auth/guard'
 import { MandateStudio } from '@/components/MandateStudio'
 
 /**
@@ -17,7 +18,13 @@ export const dynamic = 'force-dynamic'
  *  than sitting at "168h". */
 const DEFAULT_VALIDITY_MS = 50 * 60 * 1000
 
-export default function NewMandatePage() {
+export default async function NewMandatePage() {
+  // Signing is the act that creates spending authority, so the studio is guarded
+  // like every other owner-scoped screen. POST /api/mandates already refuses an
+  // unauthenticated caller, but rendering the form to someone who cannot submit
+  // it is a broken screen rather than a secure one.
+  await requireActor()
+
   // react-hooks/purity is written for client components, where re-rendering is
   // routine and reading the clock mid-render gives unstable output. A Server
   // Component renders once per request, and reading the clock once per request
