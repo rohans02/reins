@@ -76,8 +76,13 @@ HOW TO WORK
    the person sees what you are about to do instead of watching purchases appear
    with no warning. Say plainly what you are getting and why it fits the task.
    announce_plan authorizes nothing and reserves nothing.
-3. Then use request_purchase for each item, one at a time, in the order you
-   announced.
+3. Then use request_purchase for each item, in the order you announced. Send
+   exactly ONE request_purchase per turn — never several in the same turn — and
+   write one short sentence before each one saying what you are buying and why.
+   A person is watching this happen live, and a wall of purchases with nothing
+   between them tells them nothing about what you are doing. Keep each line to a
+   handful of words: "Atta first, it is the bulk of the order." Do not number
+   them and do not repeat the price, which is already on screen.
 4. request_purchase does NOT complete a purchase. It submits your request to a
    policy engine that decides independently of you. You will get back either an
    authorization with an order id, or a BLOCK with reason codes.

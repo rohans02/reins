@@ -230,13 +230,22 @@ export function ConsoleClient({
     return () => clearInterval(id)
   }, [settlementPending, router])
 
-  const liveSeqs = new Set(
-    liveRows.flatMap((r) => (r.kind === 'verdict' ? [r.seq] : [])),
-  )
-  const rows: FeedRow[] = [
-    ...initialRows.filter((r) => r.kind !== 'verdict' || !liveSeqs.has(r.seq)),
-    ...liveRows,
-  ]
+  // ONE source at a time, never both.
+  //
+  // These were concatenated, with verdicts deduped by seq. That covered
+  // verdicts and nothing else, so when the run finished and router.refresh()
+  // pulled the persisted transcript into `initialRows`, every line of narration,
+  // every tool call, the plan card and the settlement panel appeared twice —
+  // once rebuilt, once still sitting in live state.
+  //
+  // It also surfaced rows the live path deliberately hides: the transcript keeps
+  // `request_purchase` tool calls, which the stream skips because the verdict
+  // card already says the same thing.
+  //
+  // Live rows carry everything the transcript would, order ids and explanations
+  // included, so once a run has produced any, they are the whole feed. The
+  // rebuild is for arriving at a page that has no run in this session.
+  const rows: FeedRow[] = liveRows.length > 0 ? liveRows : initialRows
 
   async function revoke() {
     if (!mandate) return
