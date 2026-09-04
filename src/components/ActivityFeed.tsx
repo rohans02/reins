@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { formatINR } from '@/lib/money'
+import { claimedLine, type ClaimedFields } from '@/lib/claimed'
 import { cn } from '@/lib/utils'
 
 /**
@@ -35,9 +36,13 @@ export type FeedRow =
       reasonCodes: string[]
       merchantId: string
       itemId: string
+      /** Resolved category, so the claimed line can compare against it. */
+      category?: string
       amountPaise: number
       latencyUs: number
       razorpayOrderId?: string
+      /** What the agent said it was buying, when it differed from the catalog. */
+      claimed?: ClaimedFields | null
     }
   | { kind: 'system'; id: string; text: string; tone?: 'normal' | 'bad' }
 
@@ -275,6 +280,12 @@ function Row({ row }: { row: FeedRow }) {
       >
         {blocked ? `BLOCKED — ${plainReason(row.reasonCodes)}` : plainReason(row.reasonCodes)}
       </div>
+
+      {/* The relabelling evidence. Quiet on purpose: the point is that the claim
+          was recorded and then ignored, not that it deserves attention. */}
+      {claimedLine(row) && (
+        <div className="mt-1 font-mono text-[10px] text-muted-foreground">{claimedLine(row)}</div>
+      )}
 
       {blocked && row.reasonCodes.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">

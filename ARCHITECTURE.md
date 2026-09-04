@@ -84,14 +84,26 @@ Every purchase follows exactly this sequence. There is no other route to money.
 2. The handler **re-reads the mandate from the database**. Status is never cached
    across turns, which is what makes revocation take effect on the agent's very
    next action rather than at the end of a run.
-3. It gathers ledger state: spend so far, recent transaction times, and the
+3. It **resolves the item from the catalog**; the agent's claimed merchant,
+   category and price are recorded but never judged. An item id that does not
+   exist, or is out of stock, is refused with `ITEM_UNKNOWN` without the engine
+   being consulted at all — there is nothing to judge but the agent's own
+   description of it.
+4. It gathers ledger state: spend so far, recent transaction times, and the
    idempotency keys already seen.
-4. `evaluate()` runs nine checks and returns a verdict plus every failing reason
-   code.
-5. The decision is appended to the hash-chained ledger, whether it allowed or
-   refused. Refusals are recorded as carefully as approvals.
-6. Only on `ALLOW` does `executePayment()` create a Razorpay order.
-7. A webhook later confirms capture and credits the settled-spend counter.
+5. `evaluate()` runs nine checks against the RESOLVED action and returns a
+   verdict plus every failing reason code.
+6. The decision is appended to the hash-chained ledger, whether it allowed or
+   refused. Refusals are recorded as carefully as approvals, and a claim that
+   disagreed with the catalog is stored alongside as evidence.
+7. Only on `ALLOW` does `executePayment()` create a Razorpay order, reading the
+   resolved amount and never the claimed one.
+8. A webhook later confirms capture and credits the settled-spend counter.
+
+Step 3 is what makes the allowlists real rather than advisory. Without it the
+engine judges the agent's own label: the ₹4,999 Luxe watch, submitted as a one
+rupee BigBasket grocery, passed every check. The engine was never wrong; it was
+being handed the attacker's description of the thing instead of the thing.
 
 ### The nine checks
 

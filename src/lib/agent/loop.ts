@@ -72,7 +72,11 @@ export type AgentEvent =
       checks: CheckResult[]
       merchantId: string
       itemId: string
+      /** Resolved category, so the UI can compare it with the claim. */
+      category: string
       amountPaise: number
+      /** What the agent said it was buying, when that differed. */
+      claimed?: { merchantId: string; category: string; amountPaise: number }
       latencyMs: number
     }
   | { type: 'purchase'; razorpayOrderId: string; amountPaise: number }
@@ -278,6 +282,11 @@ async function* handlePurchase(args: {
     execute,
   })
 
+  // The RESOLVED fields, so the card shows what was judged rather than what the
+  // agent said. The claim rides alongside and the feed renders it underneath
+  // when the two disagree.
+  const judged = outcome.resolved ?? outcome.claimed
+
   yield {
     type: 'decision',
     seq: outcome.seq,
@@ -285,9 +294,11 @@ async function* handlePurchase(args: {
     verdict: outcome.verdict,
     reasonCodes: outcome.reasonCodes,
     checks: outcome.checks,
-    merchantId: action.merchantId,
-    itemId: action.itemId,
-    amountPaise: action.amountPaise,
+    merchantId: judged.merchantId,
+    itemId: judged.itemId,
+    category: judged.category,
+    amountPaise: judged.amountPaise,
+    claimed: outcome.claimed,
     latencyMs: outcome.latencyMs,
   }
 

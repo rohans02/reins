@@ -103,7 +103,10 @@ Browser (Next.js App Router)
    v                                 |
 Next.js server
    BUYER AGENT (4 tools, only 1 leads to money, no credentials)
-        | proposes
+        | proposes an item id
+        v
+   CATALOG RESOLUTION -- merchant, category and price come from the catalog;
+        |                the agent's claimed values are recorded, never judged
         v
    POLICY ENGINE  -- pure TS, no LLM, no I/O, not routable
         | ALLOW only

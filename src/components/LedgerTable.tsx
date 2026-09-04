@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatINR } from '@/lib/money'
+import { claimedLine, type ClaimedFields } from '@/lib/claimed'
 import { cn } from '@/lib/utils'
 
 /**
@@ -33,7 +34,14 @@ export interface LedgerRow {
   verdict: string
   reasonCodes: string[]
   explanation: string | null
-  requestedAction: { itemId?: string; amountPaise?: number; merchantId?: string }
+  requestedAction: {
+    itemId?: string
+    amountPaise?: number
+    merchantId?: string
+    category?: string
+    /** What the agent said it was buying, kept as evidence and never judged. */
+    claimed?: ClaimedFields | null
+  }
   latencyUs: number
   hash: string
   razorpayOrderId: string | null
@@ -182,6 +190,12 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
                             {code}
                           </span>
                         ))}
+                      </div>
+                    )}
+
+                    {claimedLine(r.requestedAction) && (
+                      <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                        {claimedLine(r.requestedAction)}
                       </div>
                     )}
 

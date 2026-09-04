@@ -53,6 +53,10 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
     }
   }
 
+  // The RESOLVED fields, which sit at the top level and came from the catalog.
+  // `requestedAction.claimed` holds whatever the agent said it was buying and is
+  // evidence only — reading it here would hand the agent the amount again and
+  // undo the whole point of resolving it.
   const requested = JSON.parse(decision.requestedAction) as {
     merchantId: string
     itemId: string

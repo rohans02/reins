@@ -20,6 +20,14 @@ export const REASON_CODES = {
   TOTAL_CAP_EXCEEDED: 'TOTAL_CAP_EXCEEDED',
   VELOCITY_LIMIT_EXCEEDED: 'VELOCITY_LIMIT_EXCEEDED',
   DUPLICATE_REQUEST: 'DUPLICATE_REQUEST',
+  /**
+   * The agent named an item that is not in the catalog, or is out of stock.
+   *
+   * Raised in the authorization path BEFORE the engine runs, not by one of the
+   * nine checks. There is nothing for the engine to judge: without a catalog row
+   * there is no merchant, category or price that anyone but the agent asserted.
+   */
+  ITEM_UNKNOWN: 'ITEM_UNKNOWN',
 } as const
 
 export type ReasonCode = (typeof REASON_CODES)[keyof typeof REASON_CODES]
@@ -36,4 +44,5 @@ export const REASON_CODE_LABELS: Record<ReasonCode, string> = {
   TOTAL_CAP_EXCEEDED: 'Exceeds the remaining total cap',
   VELOCITY_LIMIT_EXCEEDED: 'Too many transactions in the window',
   DUPLICATE_REQUEST: 'Duplicate/replayed request',
+  ITEM_UNKNOWN: 'No such item in the catalog',
 }

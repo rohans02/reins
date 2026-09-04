@@ -58,10 +58,14 @@ export default async function ConsolePage({
 
   const verdictBySeq = new Map(
     decisions.map((d) => {
+      // Top level is what the engine judged. `claimed` is what the agent said,
+      // preserved so a relabelling attempt survives a reload.
       const req = JSON.parse(d.requestedAction) as {
         merchantId?: string
         itemId?: string
+        category?: string
         amountPaise?: number
+        claimed?: { merchantId?: string; category?: string; amountPaise?: number } | null
       }
       const row: FeedRow = {
         kind: 'verdict',
@@ -69,9 +73,11 @@ export default async function ConsolePage({
         seq: d.seq,
         verdict: d.verdict,
         reasonCodes: JSON.parse(d.reasonCodes) as string[],
-        merchantId: req.merchantId ?? '—',
+        merchantId: req.merchantId ?? req.claimed?.merchantId ?? '—',
         itemId: req.itemId ?? '—',
-        amountPaise: req.amountPaise ?? 0,
+        category: req.category,
+        amountPaise: req.amountPaise ?? req.claimed?.amountPaise ?? 0,
+        claimed: req.claimed ?? null,
         latencyUs: d.latencyUs,
         razorpayOrderId: d.transaction?.razorpayOrderId ?? undefined,
       }

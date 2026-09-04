@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { canonicalHash } from '@/lib/mandate/canonical'
 import { MandateRulesSchema, type MandateStatus, type ProposedAction } from '@/lib/mandate/schema'
 import { evaluate, type CheckResult, type LedgerState, type Verdict } from '@/lib/policy/engine'
-import type { ReasonCode } from '@/lib/policy/reason-codes'
+import { REASON_CODES, type ReasonCode } from '@/lib/policy/reason-codes'
 import { append } from '@/lib/ledger/append'
 import { executePayment } from '@/lib/razorpay/execute'
 
@@ -68,6 +68,13 @@ export interface AuthorizeResult {
   seq: number
   decisionId: string
   latencyMs: number
+  /** What the agent asked for, verbatim. Evidence, never input. */
+  claimed: ProposedAction
+  /**
+   * What the engine actually judged, resolved from the catalog. Absent only
+   * when the item does not exist, in which case there was nothing to resolve.
+   */
+  resolved?: ProposedAction
   /** Present only when the purchase was authorized AND executed. */
   razorpayOrderId?: string
   /** Set when authorization succeeded but the payment call failed. */
@@ -86,15 +93,76 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
   if (mandate.userId !== req.actorUserId) throw new MandateOwnershipError()
 
   const rules = MandateRulesSchema.parse(JSON.parse(mandate.rules))
+
+  // ==========================================================================
+  //  RESOLVE THE ITEM FROM THE CATALOG. The agent does not get to say what it
+  //  is buying, only which item id it wants.
+  // ==========================================================================
+  //
+  // Without this the allowlists were advisory. A caller could take the ₹4,999
+  // Luxe watch, label it `bigbasket` / `groceries` / 1 paisa, and every one of
+  // the nine checks would pass on the label rather than the thing. The engine
+  // was never wrong; it was being fed the attacker's own description.
+  //
+  // So merchant, category and price come from the CatalogItem row. The claimed
+  // values are kept in the ledger, because a relabelling attempt is exactly the
+  // sort of thing an audit trail should preserve, but nothing judges them and
+  // `execute.ts` never reads them.
+  const item = await prisma.catalogItem.findUnique({
+    where: { id: action.itemId },
+    include: { merchant: true },
+  })
+
+  if (!item || !item.inStock) {
+    // Nothing to judge. Without a catalog row there is no merchant, category or
+    // price that anyone other than the agent asserted, so the engine is not
+    // consulted and the attempt is recorded as refused.
+    const idempotencyKey = canonicalHash({ requestId: req.requestId, claimed: action })
+    const { seq } = await append({
+      mandateId,
+      agentRunId: req.agentRunId ?? null,
+      action: 'PURCHASE',
+      requestedAction: { claimed: action },
+      verdict: 'BLOCK',
+      reasonCodes: [REASON_CODES.ITEM_UNKNOWN],
+      mandateSnapshotHash: canonicalHash(rules),
+      idempotencyKey,
+      latencyMs: 0,
+    })
+    const unknownRow = await prisma.decision.findUniqueOrThrow({
+      where: { seq },
+      select: { id: true },
+    })
+    return {
+      verdict: 'BLOCK',
+      reasonCodes: [REASON_CODES.ITEM_UNKNOWN],
+      checks: [],
+      seq,
+      decisionId: unknownRow.id,
+      latencyMs: 0,
+      claimed: action,
+    }
+  }
+
+  const resolved: ProposedAction = {
+    merchantId: item.merchantId,
+    itemId: item.id,
+    category: item.category,
+    amountPaise: item.pricePaise,
+  }
+
   const ledger = await loadLedgerState(mandateId)
 
-  const idempotencyKey = canonicalHash({ requestId: req.requestId, action })
+  // Keyed on the RESOLVED action. Two different lies about the same item are the
+  // same purchase, and should collide as a replay rather than slip through as
+  // two distinct requests.
+  const idempotencyKey = canonicalHash({ requestId: req.requestId, action: resolved })
 
   const decision = evaluate({
     rules,
     signature: mandate.signature,
     status: mandate.status as MandateStatus,
-    action,
+    action: resolved,
     ledger,
     idempotencyKey,
     now: now(),
@@ -102,11 +170,14 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
 
   // Recorded before anything is executed, and recorded whether it allowed or
   // refused. The refusals are the half that proves the system works.
+  //
+  // The resolved fields sit at the top level, which is what `execute.ts` reads.
+  // `claimed` is carried alongside purely as evidence.
   const { seq } = await append({
     mandateId,
     agentRunId: req.agentRunId ?? null,
     action: 'PURCHASE',
-    requestedAction: action,
+    requestedAction: { ...resolved, claimed: action },
     verdict: decision.verdict,
     reasonCodes: decision.reasonCodes,
     mandateSnapshotHash: decision.mandateSnapshotHash,
@@ -123,6 +194,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     seq,
     decisionId: row.id,
     latencyMs: decision.latencyMs,
+    claimed: action,
+    resolved,
   }
 
   if (decision.verdict !== 'ALLOW') return base
@@ -131,7 +204,9 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
   // than sitting at ACTIVE and refusing everything with TOTAL_CAP_EXCEEDED.
   // Purely a status correction: the engine already refuses on the cap, so this
   // changes what the UI shows, not what is enforced.
-  const remaining = rules.totalCapPaise - (ledger.spentPaise + action.amountPaise)
+  // Resolved, not claimed. A relabelled price must not decide whether the
+  // mandate is spent out.
+  const remaining = rules.totalCapPaise - (ledger.spentPaise + resolved.amountPaise)
   if (remaining <= 0) {
     await prisma.mandate.update({
       where: { id: mandateId },

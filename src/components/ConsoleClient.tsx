@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MandatePanel, type MandateView } from '@/components/MandatePanel'
 import { ActivityFeed, type FeedRow, type PlannedItem } from '@/components/ActivityFeed'
+import type { ClaimedFields } from '@/lib/claimed'
 import { LedgerSlideOver } from '@/components/LedgerSlideOver'
 import { MandateSwitcher, type SwitchableMandate } from '@/components/MandateSwitcher'
 
@@ -133,6 +134,10 @@ export function ConsoleClient({
             merchantId: String(ev.merchantId),
             itemId: String(ev.itemId),
             amountPaise,
+            // Resolved category and the agent's claim, so a relabelling attempt
+            // shows its evidence line live and not only after a reload.
+            category: typeof ev.category === 'string' ? ev.category : undefined,
+            claimed: (ev.claimed as ClaimedFields | undefined) ?? null,
             latencyUs: Math.round(Number(ev.latencyMs) * 1000),
           },
         ])
