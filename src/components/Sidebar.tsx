@@ -14,6 +14,7 @@ import {
   Terminal,
   type LucideIcon,
 } from 'lucide-react'
+import { AccountPanel } from '@/components/AccountPanel'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { formatINR } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -66,16 +67,12 @@ const ICON_BUTTON =
 export function Sidebar({
   mandate,
   dark,
-  account,
+  accountName,
 }: {
   mandate: SidebarMandate | null
   dark: boolean
-  /**
-   * Signed-in identity and sign-out, or null when OAuth is off. A Server
-   * Component prop, because sign-out is a Server Action and this file is a
-   * client component.
-   */
-  account: React.ReactNode
+  /** Display name of the signed-in person, or null when OAuth is off. */
+  accountName: string | null
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -111,7 +108,7 @@ export function Sidebar({
         </button>
       </div>
 
-      {account}
+      {accountName && <AccountPanel name={accountName} collapsed={collapsed} />}
 
       {/* Live mandate state — is authority in force right now? */}
       <MandateStatus mandate={mandate} collapsed={collapsed} />
