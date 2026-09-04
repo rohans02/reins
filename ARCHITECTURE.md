@@ -428,6 +428,62 @@ code path a genuine delivery would take.
 
 **Fixtures.** The 12-SKU catalog and its four merchants.
 
+### Who pays, and why it is not the agent
+
+The obvious objection to a product about autonomous spending is that a human
+clicks Pay in the demo. It is a fair objection and the answer is a line, not an
+excuse.
+
+**The agent's autonomy is over the decision, not over the rail.** With no human
+involvement it composes a basket, proposes each purchase, receives an ALLOW or a
+BLOCK from the engine, and causes a real Razorpay Order to exist. Nobody clicks
+anything for any of that.
+
+What it does not do is move funds, because this project never built a funding
+rail. `executePayment` calls `orders.create`, and a Razorpay Order is a
+*collection intent* on a merchant account — a request to be paid. Money moves
+only when something pays against it, and test mode cannot complete that
+server-side without a checkout surface.
+
+There is a second layer to the fiction worth stating before anyone else finds
+it. **The demo's Razorpay account is the merchant.** So the agent creates an
+order on the operator's own account and the operator pays themselves. In the
+real shape of this product the money leaves the buyer and arrives at BigBasket.
+
+**In production the rail is a debit mandate, not a payment link.** UPI AutoPay is
+precisely this: the person registers an e-mandate with their bank once, and
+debits are triggered afterwards with no further human action. That is the same
+shape as the signed mandate here, which is why the vocabulary already mirrors it.
+Were this the buyer's platform rather than the merchant, the outbound side would
+be a payouts API instead. Either way the human acts once, at signing, which is
+exactly where this product argues the human belongs.
+
+So the boundary is: **authorization is built and autonomous; settlement is
+substituted.** Nothing above the rail changes when the rail is swapped, because
+the engine never sees a payment instrument — it sees a resolved action and
+answers ALLOW or BLOCK.
+
+### Why settled spend needs a webhook, and why a tunnel appears in the runbook
+
+Two spend numbers exist and they mean different things. **Authorized** spend is
+the sum of ALLOW decisions and is what the cap is enforced against, reserved the
+instant the engine approves. **Settled** spend is what Razorpay has confirmed
+captured, and the app refuses to set it on its own.
+
+That refusal is the point. Settled does not move when the agent buys, and it does
+not move when someone clicks Pay. It moves only when Razorpay delivers a signed
+event that this code verifies. The app never marks its own homework.
+
+Paying a link is a conversation between a browser and Razorpay; the app is not
+party to it and cannot know it happened. Razorpay reports it by POSTing to a URL
+it can reach, and during local development the app is on `localhost`, which it
+cannot. A tunnel gives the local server a temporary public address so that one
+message can arrive. It is a development artifact and nothing more: deployed
+anywhere with a public URL, it disappears.
+
+Without it the two sides simply disagree, one saying paid and the other saying
+created, which is the failure this whole number is designed to make visible.
+
 ---
 
 ## 8. Measured outcomes
