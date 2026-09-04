@@ -56,6 +56,8 @@ export function selectModel(): { model: ModelClient; scripted: boolean; provider
   }
 
   // Paced so the run is watchable and leaves a window to hit Revoke mid-run.
-  const delayMs = Number(process.env.DEMO_TURN_DELAY_MS ?? 1600)
+  // 1400, not 1600: the plan turn added a step, and the whole run has to stay
+  // comfortably inside twenty seconds.
+  const delayMs = Number(process.env.DEMO_TURN_DELAY_MS ?? 1400)
   return { model: scriptedModel(DEMO_SCRIPT, { delayMs }), scripted: true, provider }
 }

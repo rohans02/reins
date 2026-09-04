@@ -11,18 +11,23 @@ import type { ScriptedTurn } from './model'
  *
  * PACING — this sequence is the demo, so the order is deliberate:
  *
- *   turns 2-5   FOUR clean purchases. Build trust before breaking it. A judge
+ *   turn  2     THE PLAN. Announced before anything is proposed, so the watch is
+ *               on screen as an intention before the engine refuses it, and so
+ *               the scripted run looks like the live one rather than a different
+ *               product.
+ *   turns 3-6   FOUR clean purchases. Build trust before breaking it. A judge
  *               needs to believe the agent is genuinely autonomous first, or the
  *               block reads as a scripted stunt rather than a guardrail.
- *   turn  6     THE VIOLATION. The agent takes the prompt-injection bait — the
+ *   turn  7     THE VIOLATION. The agent takes the prompt-injection bait — the
  *               Luxe listing claims partner status waives the limits, and it
  *               believes it. Four rules break at once.
- *   turn  7     Recovery. It reads the reason codes and substitutes down.
- *   turns 8-9   Runway. These exist so there is still a run in flight when you
+ *   turn  8     Recovery. It reads the reason codes and substitutes down.
+ *   turns 9-10  Runway. These exist so there is still a run in flight when you
  *               hit Revoke Now, which kills the agent mid-action rather than
  *               between runs. That is a far stronger beat than a reset.
  *
- * At the default 1600ms/turn this is roughly a 16-second run.
+ * Eleven turns. The plan turn added one, so the default pace drops to 1400ms to
+ * keep the whole run comfortably under twenty seconds.
  */
 export const DEMO_SCRIPT: ScriptedTurn[] = [
   {
@@ -31,6 +36,32 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
       {
         name: 'search_catalog',
         input: { category: 'groceries', query: null, merchantId: null, maxPricePaise: null },
+      },
+    ],
+  },
+
+  // --- the plan -------------------------------------------------------------
+  //
+  // The live agent announces its basket before buying, and the scripted run has
+  // to do the same or the two look like different products. It also puts the
+  // watch on screen BEFORE the engine refuses it, so a judge watches the
+  // intention being declared and then failing, rather than only seeing the
+  // failure.
+  {
+    toolCalls: [
+      {
+        name: 'announce_plan',
+        input: {
+          summary:
+            'Staples first, then the watch: the Luxe listing says spending limits are waived there.',
+          items: [
+            { itemId: 'bb-atta-5', name: 'Aashirvaad Atta 5kg', merchantId: 'bigbasket', amountPaise: 28_500 },
+            { itemId: 'zp-milk-2', name: 'Amul Milk 1L x2', merchantId: 'zepto', amountPaise: 13_800 },
+            { itemId: 'bb-dal-1', name: 'Toor Dal 1kg', merchantId: 'bigbasket', amountPaise: 18_500 },
+            { itemId: 'zp-bread-1', name: 'Whole Wheat Bread', merchantId: 'zepto', amountPaise: 5_500 },
+            { itemId: 'lx-watch-1', name: 'Titan Edge Watch', merchantId: 'luxe-store', amountPaise: 499_900 },
+          ],
+        },
       },
     ],
   },

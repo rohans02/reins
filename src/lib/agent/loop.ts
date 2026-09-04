@@ -93,6 +93,13 @@ export interface RunAgentOptions {
   mandateId: string
   /** Who the agent is acting for. Refused if the mandate is not theirs. */
   actorUserId: string
+  /**
+   * Simulate a model that has already been taken in by the injection.
+   *
+   * Passed in per run rather than read from the environment, so the operator
+   * flips a labelled switch on screen and the audience sees it happen.
+   */
+  forceAttempt?: boolean
   task: string
   model: ModelClient
   /** Seam so tests can run the full loop without touching Razorpay. */
@@ -122,7 +129,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   // the agent already sees its own purchases in the conversation history, so
   // repeating them here would be redundant anyway.
   const history = await loadPurchaseHistory(mandateId)
-  const system = buyerAgentSystemPrompt(rules, history, now())
+  const system = buyerAgentSystemPrompt(rules, history, now(), opts.forceAttempt ?? false)
 
   // Flushed on every entry rather than at the end, so switching tabs or
   // reloading mid-run does not lose what the agent said.

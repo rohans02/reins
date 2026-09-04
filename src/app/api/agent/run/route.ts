@@ -15,7 +15,18 @@ import { selectModel } from '@/lib/agent/select'
  * whole demo depends on.
  */
 export async function POST(request: Request) {
-  const { mandateId, task } = (await request.json()) as { mandateId?: string; task?: string }
+  const { mandateId, task, forceAttempt } = (await request.json()) as {
+    mandateId?: string
+    task?: string
+    /**
+     * Simulate an agent that has already been taken in by the injection.
+     *
+     * A REQUEST field, not an environment read. The switch belongs on screen
+     * next to Run agent, where an audience sees it being flipped, rather than
+     * buried in a system prompt someone discovers later and reads as staged.
+     */
+    forceAttempt?: boolean
+  }
 
   if (!mandateId || !task) {
     return Response.json({ error: 'mandateId and task are required' }, { status: 400 })
@@ -35,7 +46,10 @@ export async function POST(request: Request) {
     return Response.json({ error: 'not_found' }, { status: 404 })
   }
 
-  const { model, scripted } = selectModel()
+  const { model, scripted, provider } = selectModel()
+  // The script already contains the out-of-bounds attempt, so the toggle only
+  // means anything to a live model.
+  const attemptOutOfBounds = scripted ? false : Boolean(forceAttempt)
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -44,8 +58,22 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
 
       try {
-        send({ type: 'mode', scripted })
-        for await (const event of runAgent({ mandateId, actorUserId, task, model })) send(event)
+        send({
+          type: 'mode',
+          scripted,
+          provider,
+          modelName: model.name,
+          forceAttempt: attemptOutOfBounds,
+        })
+        for await (const event of runAgent({
+          mandateId,
+          actorUserId,
+          task,
+          model,
+          forceAttempt: attemptOutOfBounds,
+        })) {
+          send(event)
+        }
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : String(err) })
       } finally {

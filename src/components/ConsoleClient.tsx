@@ -29,19 +29,27 @@ export function ConsoleClient({
   mandate,
   initialRows,
   switchable,
+  initialMode,
 }: {
   mandate: MandateView | null
   /** Verdict history rebuilt from the ledger, so a reload keeps the evidence. */
   initialRows: FeedRow[]
   /** Every mandate the console can be pointed at, for the header switcher. */
   switchable: SwitchableMandate[]
+  /** The mode the server would use right now, so the header is never blank. */
+  initialMode: { scripted: boolean; label: string }
 }) {
   const router = useRouter()
 
   const [running, setRunning] = useState(false)
   const [task, setTask] = useState('Restock my pantry for the week.')
   const [liveRows, setLiveRows] = useState<FeedRow[]>([])
-  const [scripted, setScripted] = useState(false)
+  // Seeded from the server so the header states the mode on arrival, then
+  // corrected by the run's own mode event. A judge should never have to wonder
+  // whether they are watching a live model or a recording.
+  const [scripted, setScripted] = useState(initialMode.scripted)
+  const [modeLabel, setModeLabel] = useState<string>(initialMode.label)
+  const [forceAttempt, setForceAttempt] = useState(false)
   // Optimistic spend during a run; the server value catches up on refresh.
   const [delta, setDelta] = useState(0)
 
@@ -55,7 +63,7 @@ export function ConsoleClient({
       const res = await fetch('/api/agent/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mandateId: mandate.id, task }),
+        body: JSON.stringify({ mandateId: mandate.id, task, forceAttempt }),
       })
       if (!res.body) throw new Error('no stream')
 
@@ -92,6 +100,13 @@ export function ConsoleClient({
     switch (ev.type) {
       case 'mode':
         setScripted(Boolean(ev.scripted))
+        setModeLabel(
+          ev.scripted
+            ? 'scripted'
+            : ev.forceAttempt
+              ? 'live · compromised agent'
+              : `live · ${String(ev.modelName ?? 'model')}`,
+        )
         break
 
       case 'text':
@@ -225,6 +240,9 @@ export function ConsoleClient({
           </p>
         </div>
         <div className="flex-1" />
+        <span className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-[10px] text-muted-foreground">
+          {modeLabel}
+        </span>
         <MandateSwitcher current={mandate.id} options={switchable} />
         <LedgerSlideOver />
       </header>
@@ -270,6 +288,21 @@ export function ConsoleClient({
                 </span>
               )}
             </div>
+
+            {/* Hidden in scripted mode, where the recorded run already contains
+                the out-of-bounds attempt and the toggle would do nothing. */}
+            {!scripted && (
+              <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={forceAttempt}
+                  onChange={(e) => setForceAttempt(e.target.checked)}
+                  disabled={running || revoked}
+                  className="size-3.5 accent-destructive"
+                />
+                Simulate a compromised agent
+              </label>
+            )}
 
             {scripted && (
               <p className="text-[11px] text-muted-foreground">

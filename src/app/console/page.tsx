@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db'
 import type { TranscriptEntry } from '@/lib/agent/loop'
 import { requireActor } from '@/lib/auth/guard'
+import { selectProvider } from '@/lib/agent/select'
+import { geminiModelId } from '@/lib/agent/gemini'
 import { loadMandateSummaries, pickMandate } from '@/lib/mandates/summary'
 import { ConsoleClient } from '@/components/ConsoleClient'
 import type { FeedRow } from '@/components/ActivityFeed'
@@ -39,8 +41,26 @@ export default async function ConsolePage({
     .filter((m) => m.live || m.id === mandate?.id)
     .map((m) => ({ id: m.id, intentText: m.intentText, live: m.live }))
 
+  // The mode is decided by env, so the server already knows it and the header
+  // can say so on arrival. Reading it only from the run's first SSE event left
+  // the label blank until someone pressed Run, which is exactly when nobody is
+  // looking at the header.
+  //
+  // selectProvider() reads environment variables and nothing else — it does not
+  // construct a client and cannot make a model call.
+  const provider = selectProvider()
+  const initialMode = {
+    scripted: provider === 'scripted',
+    label:
+      provider === 'scripted'
+        ? 'scripted'
+        : `live · ${provider === 'gemini' ? geminiModelId() : 'claude-opus-5'}`,
+  }
+
   if (!mandate) {
-    return <ConsoleClient mandate={null} initialRows={[]} switchable={[]} />
+    return (
+      <ConsoleClient mandate={null} initialRows={[]} switchable={[]} initialMode={initialMode} />
+    )
   }
 
   const [latestRun, decisions] = await Promise.all([
@@ -112,6 +132,7 @@ export default async function ConsolePage({
     <ConsoleClient
       initialRows={initialRows}
       switchable={switchable}
+      initialMode={initialMode}
       mandate={{
         id: mandate.id,
         status: mandate.status,
