@@ -155,9 +155,12 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
     actorUserId: DEFAULT_USER_ID,
     action: {
       merchantId: 'medplus',
-      itemId: 'mp-paracetamol',
+      // A REAL catalog id. Since block 2 the engine judges the catalog row, not
+      // the claim, so an invented id is refused with ITEM_UNKNOWN before any of
+      // the nine checks run. mp-vitc-1 is medplus pharmacy at 24,900 paise.
+      itemId: 'mp-vitc-1',
       category: 'pharmacy',
-      amountPaise: 12_000,
+      amountPaise: 24_900,
     },
     requestId: 'pharmacy-after-revoke',
     execute: noPayment,
@@ -186,7 +189,7 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
   // ---- 4. Combined exposure. ---------------------------------------------
   const finalState = await loadMandateSummaries(DEFAULT_USER_ID)
   const exposure = totalLiveExposurePaise(finalState)
-  const expected = PHARMACY.totalCapPaise - 12_000
+  const expected = PHARMACY.totalCapPaise - 24_900
 
   console.log('\nExposure')
   check(
@@ -218,9 +221,9 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
       actorUserId: 'second-user',
       action: {
         merchantId: 'medplus',
-        itemId: 'mp-paracetamol',
+        itemId: 'mp-vitc-1',
         category: 'pharmacy',
-        amountPaise: 5_000,
+        amountPaise: 24_900,
       },
       requestId: 'cross-tenant-spend',
       execute: noPayment,

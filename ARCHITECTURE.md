@@ -331,7 +331,7 @@ watching it fail.
 
 ### The agent has its own guardrails, separate from the money
 
-A twelve-turn cap and a ninety-second wall clock. A runaway loop is its own
+A fourteen-turn cap and a ninety-second wall clock. A runaway loop is its own
 failure mode, distinct from overspend, and a demo that hangs is a demo that
 failed.
 
