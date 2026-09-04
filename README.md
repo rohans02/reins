@@ -146,7 +146,6 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 - A mandate manager showing every mandate and the combined live exposure in one number
 - Six screens: Mission Control, Mandates, Mandate Studio, Catalog, Audit Ledger, Trust Report
 - The 68-case adversarial suite
-
 - A deterministic one-sentence explanation on every refusal, written by a pure
   function so it survives every external service being down
 
@@ -159,8 +158,8 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
   **Orders are real**, with real `order_id`s in the Razorpay dashboard, and authorized
   purchases also create **real Payment Links** whose `short_url` appears as a Pay button on
   the green card. Links are capped per mandate (`PAYMENT_LINK_LIMIT`, default 4) because
-  Razorpay throttles link creation and a full run tripped it; every purchase still creates
-  an order, and only one link is ever paid. One link is paid by hand on camera with a test card, and that
+  Razorpay throttles link creation and a full run tripped it. Every purchase still creates
+  an order, and only one link is ever paid. That one is paid by hand with a test card, and it
   payment settles through the real `payment_link.paid` webhook into the real HMAC
   verification path, with no simulator involved. Bulk capture for the remaining orders is
   emitted by `src/lib/razorpay/simulator.ts`, which posts a Razorpay-shaped webhook signed
@@ -170,8 +169,8 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
   ingestion is out of scope.
 - **Authentication is optional, ownership is not.** Sign-in is GitHub or Google
   OAuth through Auth.js, and it turns on when you set a provider's credentials.
-  Leave them blank and the app runs on two demo identities with a switcher, so a
-  fresh clone opens without an OAuth app of its own. Enforcement is identical in
+  Leave them blank and the app runs on a single demo identity, so a fresh clone
+  opens without an OAuth app of its own. Enforcement is identical in
   both modes: every read is filtered by owner and every write checks ownership
   server-side, in `authorizeAndExecute`, in `runAgent` and in every route under
   `/api/mandates`. Another person's mandate id answers 404 on read, on revoke and
