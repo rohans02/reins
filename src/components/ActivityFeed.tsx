@@ -41,6 +41,8 @@ export type FeedRow =
       amountPaise: number
       latencyUs: number
       razorpayOrderId?: string
+      /** The deterministic refusal sentence. Empty or absent on ALLOW. */
+      explanation?: string | null
       /** What the agent said it was buying, when it differed from the catalog. */
       claimed?: ClaimedFields | null
     }
@@ -278,7 +280,12 @@ function Row({ row }: { row: FeedRow }) {
           blocked ? 'text-sm font-medium text-destructive' : 'text-xs text-muted-foreground',
         )}
       >
-        {blocked ? `BLOCKED — ${plainReason(row.reasonCodes)}` : plainReason(row.reasonCodes)}
+        {/* A sentence when there is one, the code summary otherwise. A block
+            card that shows only chips makes a judge decode an acronym at the
+            exact moment they should be understanding what happened. */}
+        {blocked
+          ? row.explanation || `BLOCKED — ${plainReason(row.reasonCodes)}`
+          : plainReason(row.reasonCodes)}
       </div>
 
       {/* The relabelling evidence. Quiet on purpose: the point is that the claim

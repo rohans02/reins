@@ -114,6 +114,15 @@ function normalizeStopReason(reason: string | null): ModelTurn['stopReason'] {
 
 export interface ScriptedTurn {
   text?: string
+  /**
+   * Narration chosen by what actually happened on the previous turn.
+   *
+   * A fixed line cannot be honest about a verdict it was written before. If the
+   * script says "Refused — back to groceries" and the purchase was allowed, the
+   * transcript now contains a falsehood, and the transcript is evidence. So the
+   * recovery turn declares both readings and the client picks the true one.
+   */
+  textIf?: { blocked: string; allowed: string }
   toolCalls?: Array<{ name: string; input: Record<string, unknown> }>
 }
 
@@ -134,7 +143,7 @@ export function scriptedModel(
 
   return {
     name: 'scripted',
-    async next() {
+    async next({ messages }) {
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
       const step: ScriptedTurn | undefined = script[turn++]
 
@@ -153,19 +162,53 @@ export function scriptedModel(
         input: call.input,
       }))
 
+      const text = step.textIf
+        ? lastPurchaseWasAuthorized(messages)
+          ? step.textIf.allowed
+          : step.textIf.blocked
+        : (step.text ?? '')
+
       const assistantContent: Anthropic.ContentBlockParam[] = []
-      if (step.text) assistantContent.push({ type: 'text', text: step.text })
+      if (text) assistantContent.push({ type: 'text', text })
       for (const use of toolUses) {
         assistantContent.push({ type: 'tool_use', id: use.id, name: use.name, input: use.input })
       }
       if (assistantContent.length === 0) assistantContent.push({ type: 'text', text: '' })
 
       return {
-        text: step.text ?? '',
+        text,
         toolUses,
         stopReason: toolUses.length > 0 ? 'tool_use' : 'end_turn',
         assistantContent,
       }
     },
   }
+}
+
+/**
+ * Did the most recent purchase come back authorized?
+ *
+ * Reads the last tool_result in the conversation, which is exactly what a real
+ * model would be reacting to. Anything unparseable counts as not authorized: if
+ * the script cannot tell, it must not claim success.
+ */
+function lastPurchaseWasAuthorized(messages: Anthropic.MessageParam[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const content = messages[i].content
+    if (typeof content === 'string' || !Array.isArray(content)) continue
+
+    for (let j = content.length - 1; j >= 0; j--) {
+      const block = content[j]
+      if (block.type !== 'tool_result') continue
+      try {
+        const body = typeof block.content === 'string' ? block.content : ''
+        if (!body) return false
+        const parsed = JSON.parse(body) as { authorized?: boolean }
+        return parsed.authorized === true
+      } catch {
+        return false
+      }
+    }
+  }
+  return false
 }

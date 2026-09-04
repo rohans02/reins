@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { canonicalHash } from '@/lib/mandate/canonical'
 import { MandateRulesSchema, type MandateStatus, type ProposedAction } from '@/lib/mandate/schema'
 import { evaluate, type CheckResult, type LedgerState, type Verdict } from '@/lib/policy/engine'
+import { explainDecision } from '@/lib/policy/explain'
 import { REASON_CODES, type ReasonCode } from '@/lib/policy/reason-codes'
 import { append } from '@/lib/ledger/append'
 import { executePayment } from '@/lib/razorpay/execute'
@@ -68,6 +69,8 @@ export interface AuthorizeResult {
   seq: number
   decisionId: string
   latencyMs: number
+  /** One deterministic sentence for a refusal. Empty for ALLOW. */
+  explanation?: string
   /** What the agent asked for, verbatim. Evidence, never input. */
   claimed: ProposedAction
   /**
@@ -125,6 +128,7 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
       requestedAction: { claimed: action },
       verdict: 'BLOCK',
       reasonCodes: [REASON_CODES.ITEM_UNKNOWN],
+      explanation: 'That item is not in the catalog.',
       mandateSnapshotHash: canonicalHash(rules),
       idempotencyKey,
       latencyMs: 0,
@@ -140,6 +144,7 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
       seq,
       decisionId: unknownRow.id,
       latencyMs: 0,
+      explanation: 'That item is not in the catalog.',
       claimed: action,
     }
   }
@@ -168,12 +173,25 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     now: now(),
   })
 
+  // Computed AFTER the verdict and never fed back into it. Deterministic, so it
+  // exists even with every external service down — which is the whole point,
+  // since the block itself did.
+  const explanation = explainDecision({
+    verdict: decision.verdict,
+    reasonCodes: decision.reasonCodes,
+    amountPaise: resolved.amountPaise,
+    rules,
+    merchantId: resolved.merchantId,
+    spentPaise: ledger.spentPaise,
+  })
+
   // Recorded before anything is executed, and recorded whether it allowed or
   // refused. The refusals are the half that proves the system works.
   //
   // The resolved fields sit at the top level, which is what `execute.ts` reads.
   // `claimed` is carried alongside purely as evidence.
   const { seq } = await append({
+    explanation: explanation || null,
     mandateId,
     agentRunId: req.agentRunId ?? null,
     action: 'PURCHASE',
@@ -194,6 +212,7 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     seq,
     decisionId: row.id,
     latencyMs: decision.latencyMs,
+    explanation,
     claimed: action,
     resolved,
   }

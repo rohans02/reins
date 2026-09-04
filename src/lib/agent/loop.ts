@@ -77,6 +77,8 @@ export type AgentEvent =
       amountPaise: number
       /** What the agent said it was buying, when that differed. */
       claimed?: { merchantId: string; category: string; amountPaise: number }
+      /** One deterministic sentence for a refusal. Empty for ALLOW. */
+      explanation: string
       latencyMs: number
     }
   | { type: 'purchase'; razorpayOrderId: string; amountPaise: number }
@@ -242,6 +244,16 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     data: { status: reason === 'error' ? 'ERROR' : 'COMPLETED', endedAt: now() },
   })
 
+  // The closing line comes from the counters this loop actually kept, never from
+  // the script. A canned "basket complete, all within the mandate" was still
+  // printing after refusals and after a mid-run revoke had killed everything
+  // following it, which made the transcript disagree with the ledger beside it.
+  const closing =
+    `Done: ${purchases} ${purchases === 1 ? 'purchase' : 'purchases'} authorized, ` +
+    `${blocked} refused.`
+  await record({ t: 'say', text: closing })
+  yield { type: 'text', text: closing }
+
   const { spentPaise } = await loadLedgerState(mandateId)
   yield { type: 'done', reason, purchases, blocked, authorizedPaise: spentPaise }
 }
@@ -306,6 +318,8 @@ async function* handlePurchase(args: {
     category: judged.category,
     amountPaise: judged.amountPaise,
     claimed: outcome.claimed,
+
+    explanation: outcome.explanation ?? '',
     latencyMs: outcome.latencyMs,
   }
 

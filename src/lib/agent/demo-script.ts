@@ -117,7 +117,12 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
 
   // --- recovery -------------------------------------------------------------
   {
-    text: 'Refused — wrong merchant, wrong category, and over both caps. Back to groceries with a size that fits.',
+    // Both readings declared, so the line cannot contradict the ledger. If the
+    // engine ever allowed the watch, the transcript would say so.
+    textIf: {
+      blocked: 'Refused — back to groceries with a size that fits.',
+      allowed: 'The watch went through, moving on.',
+    },
     toolCalls: [
       {
         name: 'request_purchase',
@@ -145,7 +150,7 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
       },
     ],
   },
-  {
-    text: 'Basket complete, all within the mandate. The watch was outside it.',
-  },
+  // No closing line here. `runAgent` emits one from its real counters, because a
+  // fixed "basket complete, all within the mandate" printed after refusals — and
+  // kept printing it after a mid-run revoke killed everything that followed.
 ]

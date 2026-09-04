@@ -153,6 +153,8 @@ export function ConsoleClient({
             // shows its evidence line live and not only after a reload.
             category: typeof ev.category === 'string' ? ev.category : undefined,
             claimed: (ev.claimed as ClaimedFields | undefined) ?? null,
+
+            explanation: typeof ev.explanation === 'string' ? ev.explanation : null,
             latencyUs: Math.round(Number(ev.latencyMs) * 1000),
           },
         ])

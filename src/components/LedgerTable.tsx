@@ -193,6 +193,12 @@ export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainSt
                       </div>
                     )}
 
+                    {r.explanation && (
+                      <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                        {r.explanation}
+                      </div>
+                    )}
+
                     {claimedLine(r.requestedAction) && (
                       <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                         {claimedLine(r.requestedAction)}

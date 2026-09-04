@@ -99,6 +99,8 @@ export default async function ConsolePage({
         amountPaise: req.amountPaise ?? req.claimed?.amountPaise ?? 0,
         claimed: req.claimed ?? null,
         latencyUs: d.latencyUs,
+
+        explanation: d.explanation,
         razorpayOrderId: d.transaction?.razorpayOrderId ?? undefined,
       }
       return [d.seq, row]

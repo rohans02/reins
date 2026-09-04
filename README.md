@@ -128,7 +128,7 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 |---|---|---|
 | Buyer agent | Interprets an underspecified goal, composes a basket under budget, re-plans when refused | **Yes.** This cannot be rules |
 | Mandate drafting | Free-text intent into a typed policy object | Yes, but it only **proposes**. A human approves and the server signs |
-| Incident explainer | Turns reason codes into one human sentence | Cosmetic by design. Runs **after** the verdict |
+| Incident explainer | Turns reason codes into one human sentence | Deterministic today; an LLM version can sit behind the same function. Runs **after** the verdict either way |
 | **Policy engine** | — | **Deliberately no AI.** It has to be deterministic, unfakeable, free, and provable |
 
 ---
@@ -147,8 +147,8 @@ AI is used in exactly three places, and kept out of a fourth on purpose:
 - Six screens: Mission Control, Mandates, Mandate Studio, Catalog, Audit Ledger, Trust Report
 - The 68-case adversarial suite
 
-Not yet done: the LLM block-explainer is stubbed, and the agent has not been run against a
-live model.
+- A deterministic one-sentence explanation on every refusal, written by a pure
+  function so it survives every external service being down
 
 ---
 
