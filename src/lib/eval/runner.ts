@@ -6,11 +6,6 @@ import { BASE_RULES, EVAL_CASES, EVAL_NOW, type EvalCase } from './cases'
 
 /**
  * Adversarial suite runner.
- *
- * Every case is driven through the REAL policy engine — never a mock. Because
- * evaluate() is pure, results are deterministic and byte-identical on any
- * machine, which is what turns "tests I wrote myself" into something a judge can
- * clone and re-run.
  */
 
 export interface CaseResult {

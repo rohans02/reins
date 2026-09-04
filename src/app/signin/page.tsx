@@ -6,21 +6,6 @@ import { formatINR } from '@/lib/money'
 
 /**
  * Sign in — and the first thing a judge sees once auth is on.
- *
- * So it does more than hold a button. The left half makes the argument the
- * whole project rests on, using the two rows the console actually produces: one
- * purchase allowed, one refused with its reason codes. Someone who never signs
- * in should still leave understanding what this is.
- *
- * The verdict rows are an ILLUSTRATION of the real demo run, not live data, and
- * they are labelled as an example so they cannot be mistaken for a ledger.
- *
- * Only reachable when OAuth is configured. With no provider credentials the app
- * runs on demo identities and nothing redirects here, so arriving anyway means
- * someone typed the URL — send them on rather than showing a dead end.
- *
- * Server Actions rather than a client component. The button posts, the server
- * starts the OAuth flow, and nothing here needs to run in the browser.
  */
 export const dynamic = 'force-dynamic'
 
@@ -34,10 +19,6 @@ export default async function SignInPage() {
     // Sign-in comes FIRST in the DOM and moves right only on a wide screen.
     // Stacked on a phone, the button belongs above the argument rather than
     // below a full screen of it.
-    //
-    // `grid-cols-1` and `min-w-0` are defensive: a grid child defaults to
-    // min-width:auto, so a long reason code in the sample verdict could widen
-    // the track past the viewport rather than truncating inside it.
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1.15fr_1fr]">
       <div className="min-w-0 flex items-center justify-center p-8 lg:p-12 border-b lg:border-b-0 lg:border-l border-border lg:order-2">
         <div className="w-full max-w-xs space-y-6 rn-enter">

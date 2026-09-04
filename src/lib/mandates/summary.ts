@@ -2,32 +2,7 @@ import { prisma } from '@/lib/db'
 import { MandateRulesSchema, type MandateRules } from '@/lib/mandate/schema'
 
 /**
- * ============================================================================
- *  MANDATE SUMMARIES — one read that every screen shares.
- * ============================================================================
- *
- * More than one mandate can be in force at once. A person may run a grocery
- * agent and a pharmacy agent side by side, on separate budgets, and collapsing
- * those into a single "the mandate" was a limitation of the UI rather than of
- * the engine: the policy engine, the ledger and the money path have always been
- * scoped by mandate id.
- *
- * Concurrent authority is only safe while ALL of it is visible. An earlier
- * build superseded the previous mandate whenever a new one was signed, because
- * the console showed only the newest and an older ACTIVE mandate became
- * spendable authority nobody could see. Superseding is no longer needed, and
- * what replaces it is stricter: every mandate is listed, and the total live
- * exposure across all of them is stated in one number.
- *
- * Spend is read from the LEDGER, not from `Mandate.spentPaise`. The column
- * tracks settled payments and lags behind by a webhook. Authority is consumed
- * the moment a purchase is authorized, so that is what has to be counted.
- *
- * EVERY read here is scoped to one owner. A mandate is spending authority over
- * someone's money, so "list the mandates" is never a question that can be
- * answered globally — the caller has to say whose. The userId is required
- * rather than defaulted precisely so a future caller cannot forget it and
- * silently get everybody's.
+ * Mandate summaries: one owner-scoped read that every screen shares.
  */
 
 export interface MandateSummary {
@@ -56,10 +31,6 @@ export function remainingPaise(m: MandateSummary): number {
 
 /**
  * Loads every mandate with its authorized spend.
- *
- * Two queries regardless of how many mandates exist, rather than one ledger
- * read per mandate. The manager lists all of them at once and an N+1 there
- * would be felt.
  */
 export async function loadMandateSummaries(
   userId: string,
@@ -112,10 +83,6 @@ export async function loadMandateSummaries(
 
 /**
  * Total money that could still be spent right now, across every live mandate.
- *
- * The number that actually matters once concurrent mandates exist. Any single
- * mandate understates the exposure, and this is the figure a person needs
- * before deciding whether to revoke something.
  */
 export function totalLiveExposurePaise(mandates: MandateSummary[]): number {
   return mandates.filter((m) => m.live).reduce((sum, m) => sum + remainingPaise(m), 0)

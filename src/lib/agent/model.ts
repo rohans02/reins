@@ -2,25 +2,6 @@ import Anthropic from '@anthropic-ai/sdk'
 
 /**
  * The model seam.
- *
- * The agent loop never constructs an Anthropic client. It is handed a
- * ModelClient, which has two implementations:
- *
- *   anthropicModel()  the real thing — claude-opus-5, adaptive thinking
- *   scriptedModel()   canned turns, no network, no API key
- *
- * One seam, three jobs:
- *   1. The loop can be built and run before an API key exists.
- *   2. Tests get determinism the real API can never give — the loop's control
- *      flow is asserted exactly, without paying tokens or flaking.
- *   3. It IS the DEMO_MODE=scripted fallback. On camera the agent's *choices*
- *      are fixed while the policy engine still genuinely evaluates and blocks —
- *      the guardrail is real, only the shopping is rehearsed.
- *
- * What it deliberately cannot tell us: whether the real model behaves sensibly
- * given these prompts — whether it re-plans after a BLOCK, whether it takes the
- * injection bait. That needs a live key and prompt iteration, and no mock
- * substitutes for it.
  */
 
 export interface ToolUse {
@@ -116,11 +97,6 @@ export interface ScriptedTurn {
   text?: string
   /**
    * Narration chosen by what actually happened on the previous turn.
-   *
-   * A fixed line cannot be honest about a verdict it was written before. If the
-   * script says "Refused — back to groceries" and the purchase was allowed, the
-   * transcript now contains a falsehood, and the transcript is evidence. So the
-   * recovery turn declares both readings and the client picks the true one.
    */
   textIf?: { blocked: string; allowed: string }
   toolCalls?: Array<{ name: string; input: Record<string, unknown> }>
@@ -187,10 +163,6 @@ export function scriptedModel(
 
 /**
  * Did the most recent purchase come back authorized?
- *
- * Reads the last tool_result in the conversation, which is exactly what a real
- * model would be reacting to. Anything unparseable counts as not authorized: if
- * the script cannot tell, it must not claim success.
  */
 function lastPurchaseWasAuthorized(messages: Anthropic.MessageParam[]): boolean {
   for (let i = messages.length - 1; i >= 0; i--) {

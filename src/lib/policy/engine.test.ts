@@ -7,8 +7,7 @@ import { REASON_CODES } from './reason-codes'
 /**
  * These tests are not hygiene — they are the foundation of the Trust Report.
  * evaluate() is pure, so every one of these is deterministic and reproducible by
- * a judge who clones the repo. That is the answer to "your metrics are cases you
- * wrote yourself".
+ * a judge who clones the repo.
  */
 
 // The demo mandate: Rs 800 per order, Rs 3000 total, groceries only.

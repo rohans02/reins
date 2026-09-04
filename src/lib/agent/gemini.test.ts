@@ -14,10 +14,8 @@ describe('gemini schema translation', () => {
   const purchaseTool = AGENT_TOOLS.find((t) => t.name === TOOL_NAMES.REQUEST_PURCHASE)!
   const planTool = AGENT_TOOLS.find((t) => t.name === TOOL_NAMES.ANNOUNCE_PLAN)!
 
-  // announce_plan is the only tool with a nested object schema, and translation
-  // that stops at the top level leaves the nested half unconverted. Gemini then
-  // rejects the whole tool at call time, which surfaces as a run that dies
-  // rather than as anything pointing at the schema.
+  // announce_plan is the only tool with a nested object schema. Translation that
+  // stops at the top level makes Gemini reject the tool at call time.
   it('converts nested array-of-object schemas all the way down', () => {
     const schema = toGeminiSchema(planTool.input_schema) as {
       properties: {

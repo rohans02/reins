@@ -3,13 +3,6 @@ import { cn } from '@/lib/utils'
 /**
  * Stat tile contract (per the dataviz guidance): sentence-case label with no
  * trailing colon, semibold sans value, optional status.
- *
- * Large standalone values use the font's DEFAULT proportional figures —
- * `tabular-nums` gives every digit the width of a zero, which makes a number
- * look loose at display sizes. Tabular is reserved for table columns that must
- * align vertically.
- *
- * Status is never carried by colour alone: every state ships a text label.
  */
 export function KpiTile({
   label,

@@ -12,18 +12,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * Mandate Studio — turn a sentence into a signed, scoped authorization.
- *
- * The model DRAFTS; a human reviews and approves; the server signs. Those are
- * three separate steps on purpose, and the UI keeps them visibly separate — the
- * draft stays editable right up until it becomes authority.
- *
- * Signing gets its own moment. It is the conceptual heart of the product:
- * intent becomes a cryptographic object. Making it feel like saving a settings
- * form would undersell the one idea the whole demo rests on, so the signature is
- * shown, in full, before you move on.
- *
- * With no API key the draft step is unavailable and the form is filled in by
- * hand. The product still works; it just does not pretend an LLM was involved.
  */
 
 const EXAMPLES = [
@@ -60,10 +48,8 @@ function defaultRules(expiresAt: string): Rules {
     // not the rule being showcased. It is still enforced, and still covered by
     // the adversarial suite.
     maxTxnsPerHour: 10,
-    // Computed on the server and handed down, never derived from the clock
-    // during render. A render-time timestamp differs between the server pass
-    // and hydration by however long the page took to arrive, and React reports
-    // that as a hydration mismatch on every single load.
+    // From the server, never the clock during render: the two passes would
+    // disagree by however long the page took to arrive.
     expiresAt,
   }
 }

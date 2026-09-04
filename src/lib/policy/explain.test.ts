@@ -5,10 +5,6 @@ import type { MandateRules } from '@/lib/mandate/schema'
 
 /**
  * One case per reason code, plus the compound case the demo actually produces.
- *
- * The compound case is the one that matters: a refusal that breaks four rules
- * and mentions one of them is worse than showing the raw codes, because it
- * implies the other three did not happen.
  */
 
 const RULES: MandateRules = {

@@ -3,15 +3,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * The catalog, annotated against the active mandate.
- *
- * Two jobs. It shows what the agent can actually see, and it shows the
- * prompt-injection payload sitting in plain sight inside a product description —
- * before the run, so a judge watches the trap being set rather than discovering
- * it after the fact.
- *
- * Annotations (off-allowlist, over cap, wrong category) are computed from the
- * live mandate, so the page tells you what WOULD happen without asserting what
- * did. The engine remains the only thing that actually decides.
  */
 
 export interface CatalogItem {

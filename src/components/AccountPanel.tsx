@@ -5,24 +5,6 @@ import { signOutAction } from '@/lib/auth/actions'
 
 /**
  * Who is signed in, and the way out.
- *
- * Rendered ONLY when OAuth is configured and a real session exists. An earlier
- * version of this rail said "no login, demo identity" whether or not anyone had
- * signed in, which read as an unfinished auth system at the top of the hero
- * screen. That text is gone for good. A real session is the opposite case:
- * hiding whose it is, with no way to end it, is the gap.
- *
- * A CLIENT component, because it has to know whether the sidebar is collapsed,
- * and that is client state. Sign-out therefore comes in as a Server Action from
- * `@/lib/auth/actions` rather than being defined inline, so it stays a POST.
- *
- * Collapsed, this is the avatar alone. A 64px rail has no room for a name, and
- * an unlabelled sign-out button sitting in it is a control nobody can identify
- * and everybody can hit by accident.
- *
- * It divides with a top border, not a bottom one, because it sits at the foot of
- * the rail above the mode strip. A bottom border here would land directly on the
- * strip's top border and draw the line twice.
  */
 export function AccountPanel({ name, collapsed }: { name: string; collapsed: boolean }) {
   const initial = name.slice(0, 1).toUpperCase()

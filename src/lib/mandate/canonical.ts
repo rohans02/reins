@@ -3,18 +3,6 @@ import { createHash } from 'node:crypto'
 /**
  * Deterministic JSON canonicalisation. EVERYTHING hashes through this function:
  * mandate signatures, ledger row hashes, and idempotency keys.
- *
- * If this is non-deterministic, signatures break, the hash chain breaks, and the
- * audit trail is worthless.
- *
- * Rules:
- *   - object keys sorted (UTF-16 code-unit order, the JS default — stable everywhere)
- *   - no whitespace
- *   - `undefined` properties dropped (they are absent, not null)
- *   - arrays keep their order (arrays are ordered data, not sets)
- *   - Dates serialise as ISO-8601 strings
- *   - NaN / Infinity rejected rather than silently becoming null, which is what
- *     JSON.stringify does and is exactly how a hash chain silently diverges
  */
 export function canonical(value: unknown): string {
   return serialize(value)

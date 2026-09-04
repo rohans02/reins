@@ -9,25 +9,6 @@ import { handleWebhookEvent } from '@/lib/razorpay/webhook'
 
 /**
  * THE MERCHANT-BASKET SETTLEMENT TEST.
- *
- * One Payment Link covers a whole merchant basket, so `reference_id` is a GROUP
- * id and settling it has to settle every order in that group, crediting the sum
- * rather than one item's amount.
- *
- * Two separate mistakes live here, both of which shipped.
- *
- * First, paying a link makes Razorpay create its OWN order for that payment, so
- * the event carries an order id that is not ours. An earlier version preferred
- * it, looked up an order this system had never seen, answered 200 and applied
- * nothing. Nothing caught it until a real card went through a real tunnel, which
- * is the only place those two ids differ — a hand-written probe used the same id
- * for both.
- *
- * Second, one-to-one mapping is simply wrong once a link is a basket. Settling
- * only the first row would leave the rest CREATED forever and under-credit the
- * settled figure.
- *
- * These run against the real database, because the mapping is a database lookup.
  */
 
 const RULES: MandateRules = {

@@ -23,25 +23,6 @@ import { cn } from '@/lib/utils'
  * Collapsible so Mission Control can take the full width during a run. Nav is
  * not part of the demo — once a mandate exists you never leave the console — so
  * the sidebar should be able to get out of the way.
- *
- * Collapsed, each item is its icon rather than an initial. Letters are a poor
- * rail: "C" and "K" carry no meaning, and two items starting with the same
- * letter would collide. The icon plus the native tooltip does the job.
- *
- * It also carries live mandate state, fed from the layout. A judge glancing at
- * the left edge should be able to tell whether authority is in force without
- * reading the console.
- *
- * It shows THE MANDATE ON SCREEN, not a sum across every live one. A summed
- * figure disagreed with the meter beside it in the console, and two different
- * answers to "how much has been spent" on one screen is worse than one narrower
- * answer.
- *
- * Identity appears ONLY when OAuth is configured and somebody is actually signed
- * in. An earlier version announced "no login, demo identity" at all times, which
- * put the words "no login" at the top of the hero screen and read as an
- * unfinished auth system. A real session is the opposite case: hiding whose it
- * is, with no way to end it, is the gap.
  */
 
 const NAV: Array<{ href: string; label: string; icon: LucideIcon }> = [

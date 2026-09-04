@@ -4,10 +4,6 @@ import { z } from 'zod'
  * The mandate rule set. This object is what gets canonicalised and HMAC-signed.
  * It is the single source of truth shared by: the API, the agent, the policy
  * engine, and the eval suite. Change it here or nowhere.
- *
- * Vocabulary note: these fields deliberately mirror UPI Reserve Pay semantics
- * (per-merchant scope, one-time consent, repeated debits inside a cap) rather
- * than card semantics. That is the answer to "why Razorpay and not Stripe?".
  */
 export const MandateRulesSchema = z.object({
   /** Merchant slugs, matched EXACTLY. Never fuzzy-matched — that would be a hole. */

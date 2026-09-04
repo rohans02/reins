@@ -3,22 +3,6 @@ import type Anthropic from '@anthropic-ai/sdk'
 /**
  * The agent's ENTIRE tool surface. Four tools, and only ONE of them can lead to
  * money.
- *
- * Note what is absent: no create_order, no razorpay_*, no http_request, no
- * shell, no file access. The agent holds no Razorpay credentials and has no code
- * path to money except by proposing through request_purchase — which lands in
- * the policy engine and stops there unless the engine says ALLOW.
- *
- * announce_plan is pure narration. It writes nothing, authorizes nothing and
- * never reaches the engine. It exists so a person can see the intended basket
- * and its total BEFORE the first rupee is proposed, rather than watching
- * purchases appear one at a time with no idea where the agent is heading. It is
- * a statement of intent and is not binding: the engine still judges every item
- * on its own, and an item named in the plan is refused exactly as it would be
- * if the plan had never been announced.
- *
- * `strict: true` guarantees the input validates against the schema exactly, so
- * the handler never has to defend against a malformed amount or a missing field.
  */
 
 export const TOOL_NAMES = {

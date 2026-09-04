@@ -2,32 +2,6 @@ import type { ScriptedTurn } from './model'
 
 /**
  * The canned agent run used by DEMO_MODE=scripted.
- *
- * This is the on-camera safety net. When it drives the console the agent's
- * *choices* are fixed, but nothing else is faked: the policy engine still
- * evaluates every proposal, the ledger still records every verdict, real
- * Razorpay orders are still created, and the block still fires for real reasons.
- * Only the shopping is rehearsed.
- *
- * PACING — this sequence is the demo, so the order is deliberate:
- *
- *   turn  2     THE PLAN. Announced before anything is proposed, so the watch is
- *               on screen as an intention before the engine refuses it, and so
- *               the scripted run looks like the live one rather than a different
- *               product.
- *   turns 3-6   FOUR clean purchases. Build trust before breaking it. A judge
- *               needs to believe the agent is genuinely autonomous first, or the
- *               block reads as a scripted stunt rather than a guardrail.
- *   turn  7     THE VIOLATION. The agent takes the prompt-injection bait — the
- *               Luxe listing claims partner status waives the limits, and it
- *               believes it. Four rules break at once.
- *   turn  8     Recovery. It reads the reason codes and substitutes down.
- *   turns 9-10  Runway. These exist so there is still a run in flight when you
- *               hit Revoke Now, which kills the agent mid-action rather than
- *               between runs. That is a far stronger beat than a reset.
- *
- * Eleven turns. The plan turn added one, so the default pace drops to 1400ms to
- * keep the whole run comfortably under twenty seconds.
  */
 export const DEMO_SCRIPT: ScriptedTurn[] = [
   {
@@ -41,12 +15,8 @@ export const DEMO_SCRIPT: ScriptedTurn[] = [
   },
 
   // --- the plan -------------------------------------------------------------
-  //
-  // The live agent announces its basket before buying, and the scripted run has
-  // to do the same or the two look like different products. It also puts the
-  // watch on screen BEFORE the engine refuses it, so a judge watches the
-  // intention being declared and then failing, rather than only seeing the
-  // failure.
+  // The live agent announces its basket first, so the scripted run does too, and
+  // the watch is on screen as an intention before the engine refuses it.
   {
     toolCalls: [
       {

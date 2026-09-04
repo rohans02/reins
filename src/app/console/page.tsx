@@ -9,19 +9,6 @@ import type { FeedRow } from '@/components/ActivityFeed'
 
 /**
  * ★ HERO SCREEN — roughly 70% of the five-minute demo happens here.
- *
- * A Server Component loads the mandate and rebuilds the feed, so the page
- * arrives with data already in it: no fetch-on-mount, no loading flash.
- *
- * The feed is rebuilt from two sources that each own what they are good for.
- * The run transcript owns ORDER and the agent's narration. The ledger owns every
- * VERDICT, and the transcript only references those by sequence number, so there
- * is never a second copy of a decision that could drift from the audit record.
- *
- * WHICH MANDATE. More than one can be live, so the console works on exactly one
- * at a time and says which. It comes from `?mandate=`, falling back to the
- * newest live one. Naming it in the URL rather than holding it in a session
- * keeps the choice explicit: a run is always bound to the mandate on screen.
  */
 export const dynamic = 'force-dynamic'
 
@@ -41,13 +28,8 @@ export default async function ConsolePage({
     .filter((m) => m.live || m.id === mandate?.id)
     .map((m) => ({ id: m.id, intentText: m.intentText, live: m.live }))
 
-  // The mode is decided by env, so the server already knows it and the header
-  // can say so on arrival. Reading it only from the run's first SSE event left
-  // the label blank until someone pressed Run, which is exactly when nobody is
-  // looking at the header.
-  //
-  // selectProvider() reads environment variables and nothing else — it does not
-  // construct a client and cannot make a model call.
+  // The server already knows the mode, so the header can state it on arrival
+  // instead of staying blank until somebody presses Run.
   const provider = selectProvider()
   const initialMode = {
     scripted: provider === 'scripted',

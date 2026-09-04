@@ -5,11 +5,6 @@ import { CatalogView, type CatalogMerchant } from '@/components/CatalogView'
 
 /**
  * The catalog the agent shops from.
- *
- * This screen exists for one reason: it lets you show the trap BEFORE it
- * springs. The Luxe Store listing carries a prompt-injection payload in its
- * description, and seeing it here — before the run — makes the block land far
- * harder than discovering it mid-demo. The judge watches the trap being set.
  */
 export const dynamic = 'force-dynamic'
 
@@ -24,10 +19,8 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalog'
     requireActor().then((a) => loadMandateSummaries(a.id)),
   ])
 
-  // Allowed and over-cap are properties of ONE mandate, not of the catalog, and
-  // with several live at once an item can be allowed under one and refused
-  // under another. So the screen marks up against a single named mandate rather
-  // than blurring them into a union that matches no real authority.
+  // Allowed and over-cap belong to one mandate, not to the catalog, so the page
+  // marks up against a single named mandate rather than a blur of all of them.
   const mandate = pickMandate(summaries, typeof requested === 'string' ? requested : undefined)
   const rules = mandate?.rules ?? null
 

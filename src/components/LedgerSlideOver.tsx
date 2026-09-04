@@ -7,16 +7,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * The audit ledger, as a panel you pull open on stage.
- *
- * Deliberately NOT a third always-on column. During the block — the moment that
- * decides the demo — a third panel competes for attention and gains nothing,
- * because the ledger is not needed until after the revoke. Opening it on command
- * is also the stronger move: the record appears when you claim it exists.
- *
- * "Violations only" is the button to hit live. It proves the block was written
- * down, not just rendered as a toast that vanished.
- *
- * Loads on open (a user action), never on mount.
  */
 
 interface Row {

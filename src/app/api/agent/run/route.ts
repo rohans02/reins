@@ -6,13 +6,6 @@ import { selectModel } from '@/lib/agent/select'
 /**
  * POST /api/agent/run — starts the buyer agent and streams its events as SSE.
  * AI: yes (the agent loop). Razorpay: indirectly, on ALLOW only.
- *
- * Plain Web ReadableStream rather than a streaming SDK — the loop is already an
- * async generator, so this is a dozen lines and adds no dependency.
- *
- * `no-transform` matters: a proxy that buffers the response would hold every
- * event until the run finished, which would silently destroy the live feel the
- * whole demo depends on.
  */
 export async function POST(request: Request) {
   const { mandateId, task, forceAttempt } = (await request.json()) as {
@@ -20,10 +13,6 @@ export async function POST(request: Request) {
     task?: string
     /**
      * Simulate an agent that has already been taken in by the injection.
-     *
-     * A REQUEST field, not an environment read. The switch belongs on screen
-     * next to Run agent, where an audience sees it being flipped, rather than
-     * buried in a system prompt someone discovers later and reads as staged.
      */
     forceAttempt?: boolean
   }

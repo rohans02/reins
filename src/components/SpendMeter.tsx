@@ -3,12 +3,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * The most important component on the screen.
- *
- * It shows AUTHORIZED spend against the cap — the number the policy engine
- * actually enforces — not settled spend, which lags behind the webhook. The bar
- * filling toward a hard wall is the whole product in one object.
- *
- * Tabular numerals so the digits do not jitter as the total climbs.
  */
 export function SpendMeter({
   authorizedPaise,

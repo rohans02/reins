@@ -2,25 +2,7 @@ import { prisma } from '@/lib/db'
 import { razorpayClient } from './client'
 
 /**
- * ============================================================================
- *  THE SINGLE CHOKE POINT TO MONEY.
- * ============================================================================
- *
- * This is the ONLY function in the codebase that asks Razorpay to move value.
- * It takes a persisted Decision id — not an amount, not a cart, not anything the
- * agent constructed — reloads it, and refuses to act unless the recorded verdict
- * is ALLOW.
- *
- * Why it reads the decision back from the database instead of accepting the
- * verdict as an argument: an argument can be forged by any caller. A row can
- * only have been written by the ledger, which is only written by the policy
- * engine's output. The agent cannot reach this function with a verdict it
- * invented.
- *
- * Idempotency: a Transaction row is unique per decisionId. A retry after a
- * network failure finds the existing row and returns it rather than creating a
- * second order. Combined with the engine's DUPLICATE_REQUEST check, the same
- * purchase cannot be paid for twice.
+ * The single choke point to money. Reloads the decision and refuses anything but ALLOW.
  */
 
 export interface ExecutionResult {
@@ -56,10 +38,8 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
     }
   }
 
-  // The RESOLVED fields, which sit at the top level and came from the catalog.
-  // `requestedAction.claimed` holds whatever the agent said it was buying and is
-  // evidence only — reading it here would hand the agent the amount again and
-  // undo the whole point of resolving it.
+  // The resolved fields, from the catalog. Reading `claimed` here would hand the
+  // agent control of the amount again.
   const requested = JSON.parse(decision.requestedAction) as {
     merchantId: string
     itemId: string
@@ -82,10 +62,6 @@ export async function executePayment(decisionId: string): Promise<ExecutionResul
   // NO PAYMENT LINK HERE. Links are created per MERCHANT when the run ends, in
   // `settleRun`, because nobody pays per item — you pay a shop, and the basket
   // for a shop is not known until the agent stops shopping.
-  //
-  // That split is also the honest one: an order is an authorization artefact and
-  // belongs to this function, while a link is settlement and belongs after the
-  // decisions are all in.
   await prisma.transaction.create({
     data: {
       decisionId: decision.id,

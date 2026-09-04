@@ -20,10 +20,6 @@ import { cn } from '@/lib/utils'
 /**
  * The left panel of Mission Control: what the agent is allowed to do, how much
  * of it is used up, and the button that ends it.
- *
- * Everything a judge needs to understand the bounds is here, and REVOKE never
- * leaves the screen. Its permanent presence is a product statement — you can
- * always take the authority back — not just a control.
  */
 
 export interface MandateView {
@@ -57,10 +53,8 @@ export function MandatePanel({
   const authorized = mandate.authorizedPaise + delta
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  // AlertDialogAction renders a plain Button in this shadcn build, not a Close
-  // primitive, so it does not dismiss on click. Close it ourselves before
-  // running the revoke — otherwise the dialog stays up and holds focus over the
-  // exact moment the demo needs visible.
+  // AlertDialogAction is a plain Button in this shadcn build, not a Close
+  // primitive, so the dialog has to be closed by hand before the revoke runs.
   function confirmRevoke() {
     setConfirmOpen(false)
     onRevoke()

@@ -4,35 +4,17 @@ import type { ModelClient, ToolUse } from './model'
 
 /**
  * Gemini implementation of the model seam.
- *
- * The agent loop speaks one message shape internally, and that shape happens to
- * be Anthropic's. Rather than refactor the loop, the scripted client and the
- * tests onto a neutral format, this adapter translates in both directions at the
- * boundary. The loop stays untouched and provider-agnostic in practice.
- *
- * Chosen over Anthropic for one reason the code cannot see: Gemini has a free
- * tier, and this is a student project on a deadline. The tradeoff is documented
- * in the README, because Razorpay's own Agent Studio runs on Claude and a judge
- * may reasonably ask.
  */
 
 /**
  * Verified against Vertex in global, us-central1 and asia-southeast1.
  * gemini-2.0-flash is no longer served — probe before changing this, because a
  * retired model id fails as a 404 that reads like a permissions problem.
- * Override per-environment with GEMINI_MODEL.
  */
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
 
 /**
  * Two ways to reach Gemini, and they are different products:
- *
- *   AI Studio  — an API key from aistudio.google.com. Has a genuinely free tier.
- *   Vertex AI  — a GCP project plus Application Default Credentials
- *                (`gcloud auth application-default login`). Billed to the project.
- *
- * Whichever is configured wins; the API key is preferred when both are, because
- * it is the free one.
  */
 export function geminiApiKey(): string | undefined {
   const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY
@@ -46,11 +28,6 @@ export function geminiVertexProject(): string | undefined {
 
 /**
  * Reads an env var, treating an EMPTY string as unset.
- *
- * The `??` operator only falls back on null and undefined, so an empty
- * placeholder line in .env — GEMINI_MODEL="" — silently produced an empty model
- * id and the SDK rejected the request. Empty means "not configured" everywhere
- * here, which is what anyone writing that line intends.
  */
 function envOr(name: string, fallback: string): string {
   const value = process.env[name]
@@ -162,10 +139,6 @@ export function geminiModel(): ModelClient {
 
 /**
  * Anthropic-shaped messages into Gemini `contents`.
- *
- * Gemini's functionResponse needs the function NAME, while Anthropic's
- * tool_result only carries the tool_use id. So the walk records id to name as it
- * passes each tool_use, and looks it up when the matching result arrives.
  */
 export function toGeminiContents(messages: Anthropic.MessageParam[]): Content[] {
   const nameByToolUseId = new Map<string, string>()
@@ -221,20 +194,6 @@ function flattenToolResult(content: Anthropic.ToolResultBlockParam['content']): 
 
 /**
  * Adjusts a JSON Schema written for Anthropic so Gemini accepts it.
- *
- * Two differences that matter:
- *
- *   - Anthropic's strict mode wants every property listed in `required`, so
- *     optional filters are declared `type: ['string', 'null']` and the model
- *     sends explicit nulls. Gemini does not handle union types here, so the
- *     nullable form is collapsed to the plain type and the key is dropped from
- *     `required`. The filters become genuinely optional, which is what they
- *     always meant, and the handler already treats a missing filter as no filter.
- *   - `additionalProperties` is not part of the accepted subset.
- *
- * Both rules apply at EVERY depth. announce_plan takes an array of objects, and
- * an `additionalProperties` left behind on the nested item schema is rejected
- * just as firmly as one at the top.
  */
 type JsonSchemaNode = {
   type?: unknown

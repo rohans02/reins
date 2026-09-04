@@ -8,37 +8,13 @@ import { append } from '@/lib/ledger/append'
 import { executePayment } from '@/lib/razorpay/execute'
 
 /**
- * ============================================================================
- *  THE AUTHORIZATION PATH — the only route from a proposal to money.
- * ============================================================================
- *
- * Every caller that wants to spend goes through `authorizeAndExecute`. Today
- * that is the buyer agent. Tomorrow it may also be an MCP server, letting an
- * outside agent act under the same mandate.
- *
- * This lives in its own module for one reason: there must be exactly ONE
- * implementation of "evaluate, record, then maybe pay". It used to sit inside
- * the agent loop, tangled up with the loop's event stream, which meant a second
- * caller would have had to reimplement it — and two code paths to money is
- * precisely the thing the architecture claims does not exist.
- *
- * The engine is still not reachable from the network. A caller may reach THIS
- * function, and this function always runs the engine. Nothing skips it.
- *
- * OWNERSHIP is checked here as well as at the API edge, on purpose. A mandate id
- * is a bearer token if nothing verifies who is holding it, and ids travel: they
- * sit in URLs, in tool arguments, and eventually in whatever an MCP client sends
- * us. So the single money path refuses a mandate that does not belong to the
- * actor, and it refuses BEFORE the engine runs, because a mandate that is not
- * yours is not a policy question. It is not yours.
+ * The only route from a proposal to money. Every caller comes through here, and
+ * this function always runs the engine.
  */
 
-/** Raised when an actor references a mandate that is not theirs. */
 export class MandateOwnershipError extends Error {
   constructor() {
-    // Deliberately says nothing about whether the id exists. Distinguishing
-    // "not yours" from "no such mandate" would confirm the existence of other
-    // people's mandates to anyone willing to guess ids.
+    // Says nothing about whether the id exists, so guessing ids reveals nothing.
     super('No such mandate')
     this.name = 'MandateOwnershipError'
   }
@@ -49,16 +25,11 @@ export interface AuthorizeRequest {
   /** Who is spending. Required: a caller must never be able to omit it. */
   actorUserId: string
   action: ProposedAction
-  /**
-   * Stable identifier for this request. The same id retried is treated as a
-   * replay and refused. A different id for the same item is a new purchase and
-   * is allowed, which is what makes buying milk again next week legitimate.
-   */
+  /** Same id retried is a replay. A new id for the same item is a new purchase. */
   requestId: string
   agentRunId?: string | null
-  /** Injectable clock, so the engine stays testable and pure. */
   now?: () => Date
-  /** Seam so tests can exercise the full path without touching Razorpay. */
+  /** Seam so tests can run the full path without touching Razorpay. */
   execute?: (decisionId: string) => Promise<{ razorpayOrderId: string; paymentLinkUrl?: string | null }>
 }
 
@@ -69,18 +40,13 @@ export interface AuthorizeResult {
   seq: number
   decisionId: string
   latencyMs: number
-  /** One deterministic sentence for a refusal. Empty for ALLOW. */
+  /** One sentence for a refusal. Empty for ALLOW. */
   explanation?: string
-  /** What the agent asked for, verbatim. Evidence, never input. */
+  /** What the agent asked for. Evidence, never input. */
   claimed: ProposedAction
-  /**
-   * What the engine actually judged, resolved from the catalog. Absent only
-   * when the item does not exist, in which case there was nothing to resolve.
-   */
+  /** What the engine judged, from the catalog. Absent if the item is unknown. */
   resolved?: ProposedAction
-  /** Present only when the purchase was authorized AND executed. */
   razorpayOrderId?: string
-  /** Razorpay-hosted checkout for this order, when the link was created. */
   paymentLinkUrl?: string | null
   /** Set when authorization succeeded but the payment call failed. */
   executionError?: string
@@ -91,36 +57,21 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
   const execute = req.execute ?? executePayment
   const { mandateId, action } = req
 
-  // Re-read the mandate on EVERY request. Status is never cached across turns,
-  // which is what makes revocation take effect on the very next action rather
-  // than at the end of a run.
+  // Re-read every request, never cached, so revocation lands on the next action.
   const mandate = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } })
   if (mandate.userId !== req.actorUserId) throw new MandateOwnershipError()
 
   const rules = MandateRulesSchema.parse(JSON.parse(mandate.rules))
 
-  // ==========================================================================
-  //  RESOLVE THE ITEM FROM THE CATALOG. The agent does not get to say what it
-  //  is buying, only which item id it wants.
-  // ==========================================================================
-  //
-  // Without this the allowlists were advisory. A caller could take the ₹4,999
-  // Luxe watch, label it `bigbasket` / `groceries` / 1 paisa, and every one of
-  // the nine checks would pass on the label rather than the thing. The engine
-  // was never wrong; it was being fed the attacker's own description.
-  //
-  // So merchant, category and price come from the CatalogItem row. The claimed
-  // values are kept in the ledger, because a relabelling attempt is exactly the
-  // sort of thing an audit trail should preserve, but nothing judges them and
-  // `execute.ts` never reads them.
+  // The agent picks an item id, nothing more. Merchant, category and price come
+  // from the catalog, or a relabelled watch would pass every check on its label.
   const item = await prisma.catalogItem.findUnique({
     where: { id: action.itemId },
     include: { merchant: true },
   })
 
   if (!item || !item.inStock) {
-    // Nothing to judge. Without a catalog row there is no merchant, category or
-    // price that anyone other than the agent asserted, so the engine is not
+    // Nothing here but the agent's own description, so the engine is not
     // consulted and the attempt is recorded as refused.
     const idempotencyKey = canonicalHash({ requestId: req.requestId, claimed: action })
     const { seq } = await append({
@@ -160,9 +111,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
 
   const ledger = await loadLedgerState(mandateId)
 
-  // Keyed on the RESOLVED action. Two different lies about the same item are the
-  // same purchase, and should collide as a replay rather than slip through as
-  // two distinct requests.
+  // Keyed on the resolved action, so two different lies about one item collide
+  // as a replay instead of passing as two requests.
   const idempotencyKey = canonicalHash({ requestId: req.requestId, action: resolved })
 
   const decision = evaluate({
@@ -175,9 +125,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     now: now(),
   })
 
-  // Computed AFTER the verdict and never fed back into it. Deterministic, so it
-  // exists even with every external service down — which is the whole point,
-  // since the block itself did.
+  // After the verdict, never fed back into it, and deterministic so it survives
+  // every external service being down.
   const explanation = explainDecision({
     verdict: decision.verdict,
     reasonCodes: decision.reasonCodes,
@@ -187,11 +136,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     spentPaise: ledger.spentPaise,
   })
 
-  // Recorded before anything is executed, and recorded whether it allowed or
-  // refused. The refusals are the half that proves the system works.
-  //
-  // The resolved fields sit at the top level, which is what `execute.ts` reads.
-  // `claimed` is carried alongside purely as evidence.
+  // Recorded before execution, allowed or refused alike. Resolved fields sit at
+  // the top level, which is what execute.ts reads; claimed is evidence only.
   const { seq } = await append({
     explanation: explanation || null,
     mandateId,
@@ -219,18 +165,8 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     resolved,
   }
 
-  // An expired mandate should SAY it is expired rather than sitting at ACTIVE
-  // while the engine refuses everything it proposes. The clock check has always
-  // been correct; the status column simply never caught up, which left EXPIRED
-  // in the vocabulary with nothing ever writing it.
-  //
-  // Like exhaustion, this is a status correction and not enforcement. The engine
-  // already refused, and this runs after it.
-  //
-  // Also like exhaustion, it is LAZY: it fires when something is attempted, so a
-  // mandate that expires and is never touched again stays ACTIVE until someone
-  // tries. Doing better needs a scheduled sweep, which is noted as a limitation
-  // rather than pretended away.
+  // Status correction, not enforcement: the engine already refused. Lazy, so a
+  // mandate nobody touches again stays ACTIVE until something is attempted.
   if (
     mandate.status === 'ACTIVE' &&
     decision.reasonCodes.includes(REASON_CODES.MANDATE_EXPIRED)
@@ -240,12 +176,7 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
 
   if (decision.verdict !== 'ALLOW') return base
 
-  // A mandate with nothing left to spend is finished, and should say so rather
-  // than sitting at ACTIVE and refusing everything with TOTAL_CAP_EXCEEDED.
-  // Purely a status correction: the engine already refuses on the cap, so this
-  // changes what the UI shows, not what is enforced.
-  // Resolved, not claimed. A relabelled price must not decide whether the
-  // mandate is spent out.
+  // Same for a spent-out mandate. Resolved price, never the claimed one.
   const remaining = rules.totalCapPaise - (ledger.spentPaise + resolved.amountPaise)
   if (remaining <= 0) {
     await prisma.mandate.update({
@@ -258,26 +189,18 @@ export async function authorizeAndExecute(req: AuthorizeRequest): Promise<Author
     const { razorpayOrderId, paymentLinkUrl } = await execute(row.id)
     return { ...base, razorpayOrderId, paymentLinkUrl }
   } catch (err) {
-    // Authorization succeeded but execution failed. The mandate state is intact
-    // and the decision is already recorded, so a retry is safe and idempotent.
+    // Authorized but not executed. The decision is recorded, so a retry is safe.
     return { ...base, executionError: err instanceof Error ? err.message : String(err) }
   }
 }
 
 /**
- * Spend counted against the cap is AUTHORIZED spend — the sum of ALLOW
- * decisions — not settled spend.
- *
- * This matters. `Mandate.spentPaise` is incremented by the Razorpay webhook when
- * a payment actually captures, which can lag by seconds or never arrive. If the
- * engine enforced against that, an agent could authorize ten purchases inside
- * the lag window and blow the total cap while every individual check passed. We
- * reserve against the cap the moment we authorize.
+ * Counts AUTHORIZED spend, not settled. Settled lags behind a webhook, and an
+ * agent could authorize ten more purchases inside that lag window.
  */
 export async function loadLedgerState(mandateId: string): Promise<LedgerState> {
-  // Not owner-scoped, and it must not be: this is the spend the ENGINE enforces
-  // against for one specific mandate, and it has to be complete regardless of
-  // who is asking. Ownership is settled before this is ever reached.
+  // Not owner-scoped on purpose: this is what the engine enforces against, so it
+  // must be complete. Ownership is settled before anything reaches here.
   const decisions = await prisma.decision.findMany({
     where: { mandateId },
     select: {

@@ -5,15 +5,6 @@ import { Layers } from 'lucide-react'
 
 /**
  * Which mandate the console is currently working under.
- *
- * A deliberately plain native select. A run binds to exactly one mandate, and
- * the control that chooses it should be the most boring, most predictable
- * element on the screen — this is not the place to demonstrate a custom
- * popover, and a native select is keyboard-accessible without any of the work.
- *
- * With a single mandate it renders NOTHING. A dropdown offering one choice is
- * furniture, and a "1 mandate" link is furniture with a destination — both put
- * chrome on the one screen that has to stay quiet while the block lands.
  */
 
 export interface SwitchableMandate {

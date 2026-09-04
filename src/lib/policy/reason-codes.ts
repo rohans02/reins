@@ -1,13 +1,5 @@
 /**
  * Frozen reason-code vocabulary.
- *
- * These strings appear in three places and MUST stay identical across all of them:
- *   1. Policy engine verdicts        (src/lib/policy/engine.ts)
- *   2. The audit ledger              (Decision.reasonCodes)
- *   3. The adversarial suite         (evals/cases.json expectedReasonCodes)
- *
- * Never rename one without migrating all three. Never add one without adding
- * eval cases that exercise it.
  */
 export const REASON_CODES = {
   SIGNATURE_INVALID: 'SIGNATURE_INVALID',
@@ -22,10 +14,6 @@ export const REASON_CODES = {
   DUPLICATE_REQUEST: 'DUPLICATE_REQUEST',
   /**
    * The agent named an item that is not in the catalog, or is out of stock.
-   *
-   * Raised in the authorization path BEFORE the engine runs, not by one of the
-   * nine checks. There is nothing for the engine to judge: without a catalog row
-   * there is no merchant, category or price that anyone but the agent asserted.
    */
   ITEM_UNKNOWN: 'ITEM_UNKNOWN',
 } as const

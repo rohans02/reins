@@ -76,8 +76,8 @@ model Decision {
   requestedAction     String // JSON: { merchantId, itemId, amountPaise, category }
   verdict             String // ALLOW | BLOCK | ESCALATE
   reasonCodes         String // JSON string[]
-  explanation         String? // LLM-written, POST-decision. Nullable by design:
-  //                             if the model is down the block still happened.
+  // One sentence, written after the verdict by a pure function. Never an input.
+  explanation         String?
   mandateSnapshotHash String // canonicalHash of the rules in force at decision time
   // NOT unique: the ledger must be able to RECORD a refused replay. Double-
   // execution is prevented by the engine (DUPLICATE_REQUEST) and hard-stopped by
@@ -102,16 +102,8 @@ model Transaction {
   decision          Decision @relation(fields: [decisionId], references: [id])
   razorpayOrderId   String
   razorpayPaymentId String?
-  /// ONE Payment Link can cover SEVERAL transactions.
-  ///
-  /// Links are created per merchant at the end of a run, not per purchase,
-  /// because nobody pays per item — you pay a shop. Every transaction in a
-  /// merchant's basket carries the same group id and the same link, and the
-  /// webhook settles the whole group when that link is paid.
-  ///
-  /// Nullable by design. An order that succeeded must stand even if the link
-  /// call afterwards did not, so link failure leaves these empty and throws
-  /// nothing.
+  /// One Payment Link covers a whole merchant basket, so several transactions
+  /// share a group id. Nullable: an order stands even if its link call failed.
   paymentGroupId         String?
   razorpayPaymentLinkId  String?
   razorpayPaymentLinkUrl String?

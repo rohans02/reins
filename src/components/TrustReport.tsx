@@ -18,13 +18,6 @@ import type { EvalMetrics } from '@/lib/eval/runner'
 
 /**
  * Trust Report — the metrics competitors will not have.
- *
- * Deliberately not a chart. Per the form heuristic, a headline number's job is to
- * be read, not compared over time — so this is one hero figure plus stat tiles
- * plus a table, and the page ships zero chart libraries.
- *
- * The hero figure is unauthorized spend. It is shown even at zero — especially at
- * zero, because zero is the claim.
  */
 export function TrustReport({
   initialMetrics,

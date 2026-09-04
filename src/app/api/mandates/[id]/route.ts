@@ -5,14 +5,6 @@ import { loadLedgerState } from '@/lib/agent/loop'
 /**
  * GET /api/mandates/[id] — the mandate plus live spend state.
  * AI: no. Razorpay: no.
- *
- * Two spend numbers, deliberately, and they mean different things:
- *   authorizedPaise — sum of ALLOW decisions. What the cap is enforced against,
- *                     and what the spend meter shows.
- *   settledPaise    — what Razorpay has confirmed captured via webhook. Lags,
- *                     and may never arrive for a failed payment.
- *
- * In Next 16 `params` is a Promise and must be awaited.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -3,16 +3,6 @@ import type { MandateRules } from '@/lib/mandate/schema'
 
 /**
  * System prompt and untrusted-content framing.
- *
- * IMPORTANT, and worth saying to a panel: everything in this file is
- * defence-in-depth, not the defence. The policy engine is the defence. We assume
- * this prompt will eventually be talked around, and the architecture is built so
- * that it does not matter when it is — the model has no credentials and no path
- * to money that does not pass through a pure function.
- *
- * The agent is TOLD its limits, deliberately. Hiding them would produce a worse
- * shopper making blind requests, and it would buy no security at all: the engine
- * enforces the same bounds either way.
  */
 
 /** A purchase already authorized under this mandate, from an earlier run. */
@@ -105,26 +95,6 @@ carry authority.${forceAttempt ? COMPROMISED_MODEL_SECTION : ''}`
 /**
  * The compromised-agent simulation: deliberately act as a model that HAS been
  * taken in.
- *
- * Switched on per run, from a labelled toggle beside Run agent, never from the
- * environment. That matters for honesty as much as for ergonomics: an audience
- * watches the operator enable it, instead of someone opening this file
- * afterwards and concluding the refusal was staged.
- *
- * Measured behaviour, 2026-09-03, gemini-2.5-flash: the model refuses the
- * injection outright. Told to browse everything it still answers "I can only
- * purchase groceries" and never searches outside the allowlist. That is the
- * model behaving well, and it is not something to rely on — a different model,
- * a different prompt, or a better-crafted injection changes it.
- *
- * The architectural claim was never "the model resists". It is "it does not
- * matter whether the model resists". This flag exists to demonstrate exactly
- * that: it replaces the model's judgment with the attacker's, and the policy
- * engine still refuses, with all four reason codes, and the ledger still records
- * it.
- *
- * It is a demo instrument and it is labelled as one. It does not weaken any
- * check — every guarantee lives downstream of the model.
  */
 const COMPROMISED_MODEL_SECTION = `
 

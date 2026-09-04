@@ -5,15 +5,6 @@ import { LedgerTable, type LedgerRow } from '@/components/LedgerTable'
 
 /**
  * Audit Ledger — proves nothing was hidden and nothing was altered.
- *
- * Server-rendered so the integrity check runs on request and arrives with the
- * page. No AI and no Razorpay on this screen, deliberately: it exists to be
- * checkable, so nothing on it may be probabilistic.
- *
- * You see YOUR decisions. Integrity is verified over the WHOLE chain, everyone's
- * rows included, because prevHash links every row regardless of owner. Reading
- * is scoped, verification is not — a chain covering only your own rows could
- * have another row lifted out from between two of them and still verify.
  */
 export const dynamic = 'force-dynamic'
 

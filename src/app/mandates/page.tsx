@@ -8,10 +8,6 @@ import { MandateManager, type ManagedMandate } from '@/components/MandateManager
 
 /**
  * Mandates — the manager for every piece of spending authority.
- *
- * Server-rendered, because the combined exposure figure is the point of the
- * screen and it must be true at the moment the page arrives rather than after a
- * fetch settles.
  */
 export const dynamic = 'force-dynamic'
 

@@ -9,13 +9,6 @@ import { currentUserId } from '@/lib/auth/session'
 /**
  * POST /api/mandates/draft — plain-language intent to a structured mandate draft.
  * AI: yes. Razorpay: no.
- *
- * The model PROPOSES only. Nothing here is signed and nothing becomes active.
- * The response is a draft a human edits and approves at POST /api/mandates.
- *
- * With no usable key this returns 503 rather than faking a parse. The Mandate
- * Studio falls back to a manually filled form, so the product still works. It
- * just does not pretend a model was involved when one was not.
  */
 
 const MANDATE_SCHEMA = {
@@ -39,10 +32,8 @@ const MANDATE_SCHEMA = {
 } as const
 
 export async function POST(request: Request) {
-  // Guarded BEFORE the provider is chosen, because this is the one endpoint that
-  // spends money on someone else's behalf: an unauthenticated caller reaching it
-  // burns the operator's model credits, one request at a time, with nothing in
-  // the product to show for it.
+  // Guarded before the provider is chosen. This is the one endpoint that spends
+  // the operator's model credits, so an open one is a bill anybody can run up.
   if (!(await currentUserId())) {
     return Response.json({ error: 'unauthenticated' }, { status: 401 })
   }

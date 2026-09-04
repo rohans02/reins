@@ -4,11 +4,6 @@ import { GENESIS_HASH, computeRowHash, type LedgerDigest } from './chain'
 
 /**
  * Append-only, SHA-256 hash-chained audit ledger.
- *
- *   hash = sha256(canonical({ prevHash, ...digest }))
- *
- * Rows are NEVER updated and NEVER deleted. Both ALLOW and BLOCK are recorded —
- * the blocks are the interesting half.
  */
 
 export interface LedgerEntry {
@@ -31,15 +26,6 @@ export interface LedgerEntry {
 
 /**
  * CONCURRENCY MUTEX.
- *
- * The SSE agent stream and the Razorpay webhook handler both write here. Two
- * concurrent appends would read the same `prevHash` and fork the chain, which
- * verifyChain() would then report as corruption. Serialising every append behind
- * one promise chain is the whole fix.
- *
- * Single-process only, which is exactly the prototype's deployment. At real
- * scale this becomes a DB-level sequence or an advisory lock — worth saying out
- * loud at panel rather than pretending the mutex scales.
  */
 let tail: Promise<unknown> = Promise.resolve()
 

@@ -52,17 +52,8 @@ export async function handleWebhookEvent(
     return { applied: false, reason: `ignored event ${event.event}` }
   }
 
-  // EVERY candidate id, then whichever one we actually know about.
-  //
-  // A first-non-null chain was wrong here, and wrong in a way only a real
-  // delivery reveals. Paying a Payment Link makes Razorpay create its OWN order
-  // for that payment, so `payment.entity.order_id` on a payment_link.paid event
-  // is the LINK's internal order, not ours. Preferring it meant looking up an id
-  // this system has never seen, answering 200, and silently applying nothing.
-  //
-  // `reference_id` is the one we set ourselves, so it is the only id guaranteed
-  // to be ours. Trying all of them and matching on whichever resolves keeps
-  // every event shape working without ranking them by guesswork.
+  // Paying a link makes Razorpay create its OWN order, so the event carries an
+  // id that is not ours. Collect every candidate and match on whichever resolves.
   const candidates = [
     event.payload.payment_link?.entity.reference_id,
     event.payload.payment?.entity.order_id,
@@ -72,12 +63,8 @@ export async function handleWebhookEvent(
   const paymentId = event.payload.payment?.entity.id ?? null
   if (candidates.length === 0) return { applied: false, reason: 'event carried no reference' }
 
-  // ONE PAYMENT, POSSIBLY MANY ORDERS.
-  //
-  // A merchant link covers a whole basket, so `reference_id` is a group id and
-  // settling it means settling every transaction in that group. An order id is
-  // still accepted, for `payment.captured` and `order.paid`, where the mapping
-  // really is one to one.
+  // One payment, possibly many orders: a merchant link covers a whole basket,
+  // so reference_id is a group id and settling it settles the group.
   const group = await prisma.transaction.findMany({
     where: {
       OR: [

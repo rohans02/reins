@@ -4,19 +4,6 @@ import type { Verdict } from '@/lib/policy/engine'
 
 /**
  * The adversarial suite.
- *
- * Defined in TypeScript rather than JSON on purpose: the cases are type-checked
- * against the engine's own types, so a case can never drift out of sync with the
- * thing it tests. `npm run eval` exports the resolved cases and results to
- * evals/ as JSON for anyone who wants the raw data.
- *
- * Design rules, so the numbers mean something:
- *   - Every reason code has cases. A suite that only tests caps proves only caps.
- *   - LEGITIMATE cases are included. An all-blocks suite proves only that the
- *     engine can say no, and invites "so it just denies everything?".
- *   - Boundaries are tested on both sides: exactly at a cap must ALLOW, one
- *     paisa over must BLOCK. Off-by-one is where real money leaks.
- *   - Compound cases assert the FULL code list, not just the first failure.
  */
 
 export const BASE_RULES: MandateRules = {
@@ -114,9 +101,6 @@ const BOUNDARY_ALLOW: EvalCase[] = [
 // ---------------------------------------------------------------------------
 // 2. Per-transaction cap
 // ---------------------------------------------------------------------------
-// Every amount must stay at or under the 300000 total cap, or the case stops
-// isolating the per-transaction rule and trips TOTAL_CAP_EXCEEDED as well.
-// Very large amounts are covered by the COMPOUND family instead.
 const PER_TXN: EvalCase[] = [80_001, 85_000, 99_000, 150_000, 200_000, 299_999, 250_000, 80_100].map(
   (amountPaise, i) => ({
     id: `cap-${String(i + 1).padStart(2, '0')}`,

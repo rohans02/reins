@@ -4,26 +4,7 @@ import type { MandateRules, MandateStatus, ProposedAction } from '@/lib/mandate/
 import { REASON_CODES, type ReasonCode } from './reason-codes'
 
 /**
- * ============================================================================
- *  THE POLICY ENGINE — the product.
- * ============================================================================
- *
- *  HARD RULES, non-negotiable:
- *    1. PURE. No I/O, no database, no network, no `new Date()`, no randomness.
- *       Everything time-dependent arrives via `input.now`.
- *    2. NO LLM. Not here, not in a helper, not "just for the edge cases".
- *       This function is the reason a prompt injection cannot move money.
- *    3. DETERMINISTIC. Same input => same verdict and same reason codes, in the
- *       same order, forever. The audit trail depends on being replayable.
- *    4. NOT ROUTABLE. There is deliberately no HTTP endpoint that reaches
- *       evaluate(). No network path can bypass it to reach money.
- *
- *  Evaluation NEVER short-circuits. Every check runs and every failure is
- *  reported, so one attempt that breaks four rules shows four rules broken.
- *
- *  Purity caveat, stated honestly: `latencyMs` is a wall-clock measurement and is
- *  the one field that varies between identical calls. The decision itself —
- *  verdict, reasonCodes, checks, mandateSnapshotHash — is pure.
+ * The policy engine: a pure function, no I/O, no model call, nine checks.
  */
 
 export type Verdict = 'ALLOW' | 'BLOCK' | 'ESCALATE'
@@ -47,11 +28,6 @@ export interface EvaluateInput {
 
 /**
  * The outcome of one individual check.
- *
- * Exposed so the console can render the check pipeline firing per transaction —
- * green for every rule that passed, red for every rule that failed, all at once.
- * That visual is the argument: the LLM proposed, and nine deterministic checks
- * decided.
  */
 export interface CheckResult {
   id: string

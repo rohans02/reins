@@ -4,18 +4,6 @@ import type { ReasonCode } from '@/lib/policy/reason-codes'
 
 /**
  * One sentence saying why a purchase was refused.
- *
- * Pure. No I/O, no model, no network. That is the point rather than a
- * convenience: the sentence on a block card must exist even when every external
- * service is down, because the block itself did. An LLM version could sit behind
- * this same signature later without moving anything.
- *
- * It covers EVERY code present. A refusal that broke four rules and explains one
- * of them is a worse artefact than the raw codes, because it implies the other
- * three did not happen.
- *
- * Returns '' for ALLOW. There is nothing to explain about a purchase that went
- * through, and a green card carrying a sentence would dilute the red one.
  */
 
 export interface ExplainInput {
@@ -34,10 +22,8 @@ export function explainDecision(input: ExplainInput): string {
   const { reasonCodes, amountPaise, rules, merchantId, spentPaise } = input
   const has = (code: string) => (reasonCodes as string[]).includes(code)
 
-  // `literal` marks a clause that opens with an identifier or an amount, which
-  // must not be sentence-capitalised. "Luxe-store" is not the merchant id, and
-  // a sentence that silently rewrites an identifier is a small lie in a product
-  // whose whole claim is that the record is exact.
+  // `literal` marks a clause opening with an identifier or an amount, which must
+  // not be sentence-capitalised. "Luxe-store" is not the merchant id.
   const clauses: Array<{ text: string; literal?: boolean }> = []
 
   // Ordered so the most concrete reason leads. "Over the cap" tells you more

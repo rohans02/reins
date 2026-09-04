@@ -33,14 +33,6 @@ export async function GET() {
 /**
  * POST /api/mandates — canonicalise, HMAC-sign, activate.
  * AI: no. Razorpay: no.
- *
- * This is the ONLY place a mandate becomes ACTIVE, and it happens only on an
- * explicit human action. The drafting model proposes; this endpoint is where a
- * person's approval turns a proposal into authority.
- *
- * Issuance is written to the same append-only ledger as every spend decision, so
- * the audit trail answers "who granted this, and when" as well as "what was
- * spent".
  */
 export async function POST(request: Request) {
   const body = (await request.json()) as { intent?: string; rules?: unknown }
@@ -60,22 +52,7 @@ export async function POST(request: Request) {
 
   // CONCURRENT MANDATES ARE ALLOWED, AND THAT IS ONLY SAFE BECAUSE THEY ARE ALL
   // VISIBLE.
-  //
   // Signing used to supersede every other active mandate. The reason was real:
-  // the console showed only the newest one, so an older ACTIVE mandate stayed
-  // live and spendable through the API with nothing on screen saying so, and
-  // silently orphaned authority is the exact failure this product exists to
-  // prevent.
-  //
-  // Superseding solved that by destroying authority the person never asked to
-  // give up, which is a blunt answer to a display problem. The replacement is
-  // stricter. /mandates lists every mandate that exists, states the combined
-  // exposure across all of them in one number, and revoking is one click from
-  // that list. Nothing is hidden, so nothing has to be silently withdrawn.
-  //
-  // Each mandate stays an independent budget. Caps, velocity and spend are all
-  // scoped by mandate id in the engine, so two live mandates cannot borrow
-  // headroom from one another.
   const signature = signMandate(rules)
 
   const userId = await currentUserId()

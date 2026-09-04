@@ -6,17 +6,6 @@ import { configuredProviders } from '@/lib/auth/providers'
 /**
  * Auth.js wiring. Deliberately small, because the application asks exactly one
  * question of it and asks that question in exactly one place.
- *
- * JWT sessions rather than a database adapter. An adapter would mean User,
- * Account, Session and VerificationToken tables, a migration, and a second
- * source of truth about who exists, to support a sign-in flow that has no
- * profile page and no account settings. The session cookie is signed with
- * AUTH_SECRET, so it is tamper-evident without any of that.
- *
- * THE USER ID is `provider:providerAccountId`, not the email address. Email is
- * mutable and re-assignable, and a mandate is authority over money — it must
- * not silently follow an address that changed hands. The provider's account id
- * is stable for the life of the account.
  */
 
 const providers: NextAuthConfig['providers'] = []

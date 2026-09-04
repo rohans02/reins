@@ -18,10 +18,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * Audit Ledger — proves nothing was hidden and nothing was altered.
- *
- * No AI and no Razorpay on this screen, deliberately. It exists to be checkable,
- * so nothing on it may be probabilistic. The "chain verified" badge is computed
- * by recomputing every hash on request, not stored and trusted.
  */
 
 export interface LedgerRow {
@@ -58,10 +54,8 @@ export interface ChainStatus {
 export function LedgerTable({ rows, chain }: { rows: LedgerRow[]; chain: ChainStatus }) {
   const router = useRouter()
   const [filter, setFilter] = useState<Filter>('ALL')
-  // The ledger is deliberately ONE chain across every mandate. Splitting it per
-  // mandate would let a decision be quietly left out of a chain and still
-  // verify, which is the whole property the ledger exists to have. So mandate
-  // is a filter over one sequence, never a separate sequence.
+  // One chain across every mandate. A per-mandate chain could omit a decision
+  // and still verify, so mandate is a filter here and never a separate sequence.
   const [mandateId, setMandateId] = useState<string>('ALL')
 
   const mandates = [...new Map(rows.map((r) => [r.mandateId, r.mandateLabel])).entries()]

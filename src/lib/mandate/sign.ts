@@ -4,13 +4,6 @@ import type { MandateRules } from './schema'
 
 /**
  * HMAC-SHA256 over canonical(rules), keyed by MANDATE_SIGNING_KEY.
- *
- * The LLM never calls signMandate(). A mandate is signed only by the server, and
- * only after a human has reviewed the draft: the model proposes, the human
- * authorises, the code signs.
- *
- * The key is read at call time (not module load) so tests and the dev server can
- * set it without import-order games.
  */
 function signingKey(): string {
   const key = process.env.MANDATE_SIGNING_KEY

@@ -19,16 +19,6 @@ import { MandateSwitcher, type SwitchableMandate } from '@/components/MandateSwi
 
 /**
  * ★ MISSION CONTROL — roughly 70% of the five-minute demo happens on this screen.
- *
- * Two panels:
- *   left    the mandate — bounds, spend meter, expiry countdown, REVOKE
- *   right   one merged activity feed, with the command bar anchored below it
- *
- * The audit ledger is a slide-over rather than a third column: it is not needed
- * until after the revoke, and a third panel would compete for attention during
- * the block, which is the moment the whole demo turns on.
- *
- * No navigation is required at any point in the demo.
  */
 export function ConsoleClient({
   mandate,
@@ -211,15 +201,8 @@ export function ConsoleClient({
     }
   }
 
-  // Settled spend arrives by WEBHOOK, so nothing in this browser knows when it
-  // lands. Paying a link is a conversation between the payer and Razorpay, and
-  // the confirmation reaches the server minutes or seconds later with no request
-  // from here to hang a response on.
-  //
-  // So the console asks again, but only while there is something outstanding:
-  // authorized money that has not settled yet. Once the two agree, or the run is
-  // in flight and refreshing anyway, the polling stops. That keeps a demo screen
-  // truthful without leaving a timer running all night on an idle laptop.
+  // Settled spend arrives by webhook, so the browser is never told. Poll while
+  // something is outstanding, and stop once the two figures agree.
   const settlementPending = Boolean(
     mandate && mandate.settledPaise < mandate.authorizedPaise && !running,
   )
@@ -230,21 +213,8 @@ export function ConsoleClient({
     return () => clearInterval(id)
   }, [settlementPending, router])
 
-  // ONE source at a time, never both.
-  //
-  // These were concatenated, with verdicts deduped by seq. That covered
-  // verdicts and nothing else, so when the run finished and router.refresh()
-  // pulled the persisted transcript into `initialRows`, every line of narration,
-  // every tool call, the plan card and the settlement panel appeared twice —
-  // once rebuilt, once still sitting in live state.
-  //
-  // It also surfaced rows the live path deliberately hides: the transcript keeps
-  // `request_purchase` tool calls, which the stream skips because the verdict
-  // card already says the same thing.
-  //
-  // Live rows carry everything the transcript would, order ids and explanations
-  // included, so once a run has produced any, they are the whole feed. The
-  // rebuild is for arriving at a page that has no run in this session.
+  // One source at a time. Concatenating them showed every narration line, tool
+  // call and panel twice once the finished run refreshed into initialRows.
   const rows: FeedRow[] = liveRows.length > 0 ? liveRows : initialRows
 
   async function revoke() {

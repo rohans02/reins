@@ -11,22 +11,8 @@ import { formatINR } from '../src/lib/money'
 
 /**
  * Two live mandates at once, against the real database and the real engine.
- *
- * Concurrent mandates are only worth having if they are genuinely separate
- * budgets. This proves the four claims the manager screen makes:
- *
- *   1. spending under one mandate leaves the other's cap untouched
- *   2. an item allowed under one is refused under the other, on its own rules
- *   3. revoking one leaves the other able to spend
- *   4. combined exposure is the sum of what is left across live mandates
- *
- * It then proves the TENANCY boundary, which is a different question: a mandate
- * id held by the wrong person must be worth nothing.
- *
- * Nothing here calls Razorpay. Execution is stubbed so the run is free and
- * offline; the policy engine and the ledger are the real ones.
- *
- * Run: npx tsx scripts/smoke-multi-mandate.ts
+ * Proves they are separate budgets, and that one person's mandate id is worth
+ * nothing in another person's hands. Razorpay is stubbed; the engine is not.
  */
 
 const GROCERIES: MandateRules = {
@@ -155,9 +141,8 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
     actorUserId: DEFAULT_USER_ID,
     action: {
       merchantId: 'medplus',
-      // A REAL catalog id. Since block 2 the engine judges the catalog row, not
-      // the claim, so an invented id is refused with ITEM_UNKNOWN before any of
-      // the nine checks run. mp-vitc-1 is medplus pharmacy at 24,900 paise.
+      // A real catalog id. The engine judges the catalog row, not the claim, so
+      // an invented id is refused with ITEM_UNKNOWN before any check runs.
       itemId: 'mp-vitc-1',
       category: 'pharmacy',
       amountPaise: 24_900,
@@ -207,11 +192,8 @@ Paste the value into MANDATE_SIGNING_KEY in .env and re-run.`,
 
   // ---- 5. Tenancy. A mandate id is worthless in the wrong hands. ---------
   //
-  // The engine bounds what an agent may spend. This bounds WHOSE authority a
-  // caller may spend at all, and it has to hold even when the id is known,
-  // because ids travel: they sit in URLs, in tool arguments, and in whatever an
-  // MCP client sends. So the check lives on the single money path, not only at
-  // the API edge.
+  // Has to hold even when the id is known, because ids travel, so the check
+  // lives on the single money path and not only at the API edge.
   const outsider = await createMandate('Someone else entirely', GROCERIES, 'second-user')
 
   let refused = false

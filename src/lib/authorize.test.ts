@@ -8,17 +8,6 @@ import { DEFAULT_USER_ID } from '@/lib/auth/users'
 
 /**
  * THE RELABELLING TEST.
- *
- * The 68-case adversarial suite calls `evaluate()` directly, so it can only ever
- * prove that the engine judges correctly once it has been told what the action
- * is. It structurally cannot catch the hole this file exists for: an agent that
- * lies about WHICH thing it is buying. That lie is resolved away in
- * `authorizeAndExecute`, one layer above the engine, so it has to be tested one
- * layer above the engine too.
- *
- * This runs against the real SQLite file and the real catalog rows, because a
- * mocked catalog would test the mock. Only the Razorpay call is stubbed, since
- * this is about authorization and not about payment.
  */
 
 const RULES: MandateRules = {

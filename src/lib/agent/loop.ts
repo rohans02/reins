@@ -11,24 +11,12 @@ import type { CheckResult } from '@/lib/policy/engine'
 import type { ModelClient, ToolUse } from './model'
 
 /**
- * The buyer agent loop. Hand-written on purpose — not LangGraph (Python-first,
- * wrong stack) and not the SDK tool runner, because a loop you can walk a panel
- * through line by line is the stronger signal, and because every turn has to
- * emit a ledger row and a UI event anyway.
- *
- * GUARDRAILS ON THE AGENT ITSELF, distinct from the guardrails on the money:
- *   - MAX_TURNS caps reasoning steps
- *   - MAX_WALL_CLOCK_MS caps elapsed time
- * A runaway loop is its own failure mode, separate from overspend, and a demo
- * that hangs is a demo that failed.
+ * The buyer agent loop, hand-written so it can be walked through line by line.
+ * MAX_TURNS and MAX_WALL_CLOCK_MS guard the agent, not the money.
  */
 
 /**
  * One entry in a run's persisted transcript.
- *
- * Verdicts are stored as a `seq` reference rather than a copy — the ledger is
- * the record of what was decided, and duplicating it here would create a second
- * version of the truth that could drift.
  */
 export interface PlannedItem {
   itemId: string
@@ -45,10 +33,8 @@ export type TranscriptEntry =
   | { t: 'settlement'; baskets: MerchantBasket[] }
   | { t: 'system'; text: string }
 
-// 14, not 12. announce_plan spends a turn before any buying starts, and at 12
-// a full demo run finished on the turn cap rather than because the agent was
-// done — which reads as the agent giving up. The cap is still a real stop, it
-// just accounts for the turn the plan costs.
+// 14, not 12: announce_plan costs a turn, and at 12 a full run ended on the cap
+// rather than because the agent was done.
 export const MAX_TURNS = 14
 export const MAX_WALL_CLOCK_MS = 90_000
 
@@ -58,10 +44,6 @@ export type AgentEvent =
   | { type: 'tool_call'; name: string; input: Record<string, unknown> }
   /**
    * What the agent intends to buy, before it proposes any of it.
-   *
-   * Narration only. Nothing here is authorized, reserved or recorded in the
-   * ledger, and an item named in a plan is judged exactly as it would be if no
-   * plan had been announced.
    */
   | { type: 'plan'; summary: string; items: PlannedItem[] }
   | {
@@ -86,10 +68,6 @@ export type AgentEvent =
   | { type: 'purchase'; razorpayOrderId: string; amountPaise: number }
   /**
    * What is owed, per merchant, once the run is over.
-   *
-   * Settlement is grouped by shop rather than by item, because nobody pays per
-   * item. It arrives once at the end rather than alongside each purchase, since
-   * a shop's basket is not known until the agent stops shopping.
    */
   | { type: 'settlement'; baskets: MerchantBasket[] }
   | { type: 'error'; message: string }
@@ -107,9 +85,6 @@ export interface RunAgentOptions {
   actorUserId: string
   /**
    * Simulate a model that has already been taken in by the injection.
-   *
-   * Passed in per run rather than read from the environment, so the operator
-   * flips a labelled switch on screen and the audience sees it happen.
    */
   forceAttempt?: boolean
   task: string
@@ -136,10 +111,8 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
   yield { type: 'started', runId: run.id, model: model.name }
 
-  // Loaded once, before the loop. The system prompt is the cached prefix, so
-  // rebuilding it every turn would throw prompt caching away — and within a run
-  // the agent already sees its own purchases in the conversation history, so
-  // repeating them here would be redundant anyway.
+  // Built once. The system prompt is the cached prefix, so rebuilding it every
+  // turn would throw prompt caching away.
   const history = await loadPurchaseHistory(mandateId)
   const system = buyerAgentSystemPrompt(rules, history, now(), opts.forceAttempt ?? false)
 
@@ -254,21 +227,16 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     data: { status: reason === 'error' ? 'ERROR' : 'COMPLETED', endedAt: now() },
   })
 
-  // The closing line comes from the counters this loop actually kept, never from
-  // the script. A canned "basket complete, all within the mandate" was still
-  // printing after refusals and after a mid-run revoke had killed everything
-  // following it, which made the transcript disagree with the ledger beside it.
+  // From the counters this loop kept, never from the script. A canned "basket
+  // complete" line kept printing after refusals and after a mid-run revoke.
   const closing =
     `Done: ${purchases} ${purchases === 1 ? 'purchase' : 'purchases'} authorized, ` +
     `${blocked} refused.`
   await record({ t: 'say', text: closing })
   yield { type: 'text', text: closing }
 
-  // Settlement LAST, after the closing line, because it is what the reader acts
-  // on. It runs once the agent has stopped, when each shop's basket is finally
-  // known, and it cannot fail the run: every order is already real and already
-  // authorized, so a link that could not be created is an inconvenience rather
-  // than a policy failure.
+  // Last, because it is what the reader acts on, and only once the agent has
+  // stopped and each shop's basket is known. It cannot fail the run.
   const baskets = await settleRun(run.id)
   if (baskets.length > 0) {
     await record({ t: 'settlement', baskets })
@@ -283,11 +251,6 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
 /**
  * Adapts one `request_purchase` tool call onto the shared authorization path.
- *
- * Everything that decides anything lives in `authorizeAndExecute`. This function
- * only translates: tool input in, UI events and a tool result out. Keeping the
- * decision logic out of here is what lets a second caller — an MCP server, say —
- * reuse the identical path instead of reimplementing it.
  */
 async function* handlePurchase(args: {
   use: ToolUse
@@ -406,10 +369,6 @@ async function* handlePurchase(args: {
 
 /**
  * Reads an announce_plan payload defensively.
- *
- * `strict: true` should guarantee the shape, but this is display data from the
- * model and a malformed plan must never take a run down. Anything unreadable is
- * dropped rather than thrown.
  */
 function readPlan(input: Record<string, unknown>): { summary: string; items: PlannedItem[] } {
   const raw = Array.isArray(input.items) ? input.items : []
@@ -485,10 +444,6 @@ async function handleReadOnlyTool(use: ToolUse): Promise<Anthropic.ToolResultBlo
 
 /**
  * Purchases already authorized under this mandate, newest last.
- *
- * Gives the agent a sense of what the person already has, so "restock" means
- * topping up rather than buying the same list again. This is our own ledger
- * data, not third-party content, so it is trusted input.
  */
 export async function loadPurchaseHistory(
   mandateId: string,

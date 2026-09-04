@@ -17,24 +17,13 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
-  // Theme lives in a cookie so the SERVER can stamp the class onto <html>.
-  // localStorage cannot work here: the server never sees it, so the markup
-  // disagrees on hydration, and the usual fix — a blocking inline <script> —
-  // is exactly what React 19 warns about inside a component.
+  // A cookie, not localStorage, so the server can stamp the class onto <html>.
+  // The server never sees localStorage, so the markup disagrees on hydration.
   const dark = (await cookies()).get('rn-theme')?.value === 'dark'
 
   // The sidebar shows the mandate the console is working under, so the layout
   // resolves it with the SAME pickMandate the console uses and hands over that
   // one row. Refreshed by router.refresh() along with the page.
-  //
-  // A layout cannot read search params, so it cannot see `?mandate=`. It gets
-  // the default, which is the newest live mandate — identical to the console
-  // whenever the console is on its default, and that is the only state the demo
-  // is ever in.
-  //
-  // The layout wraps the sign-in page too, so it must NOT demand a session.
-  // With nobody signed in it renders the page on its own: a sidebar full of
-  // mandate state has nothing to say before there is an owner to scope it to.
   const actor = await currentActor()
   const summaries = actor ? await loadMandateSummaries(actor.id) : []
   const mandate = pickMandate(summaries)

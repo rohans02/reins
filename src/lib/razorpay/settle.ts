@@ -3,33 +3,7 @@ import { prisma } from '@/lib/db'
 import { razorpayClient } from './client'
 
 /**
- * ============================================================================
- *  SETTLEMENT — one Payment Link per MERCHANT, once the run is over.
- * ============================================================================
- *
- * Nobody pays per item. You pay a shop. If the agent buys four things at
- * BigBasket and three at Zepto, that is two payments, and modelling it as seven
- * was an artefact of creating a link at the same moment as the order.
- *
- * So orders stay where they belong, in `executePayment`, created the instant the
- * engine authorizes. Links are created here, after the agent has stopped, when
- * the basket for each shop is finally known.
- *
- * The grouping also removes a class of problem rather than working around it.
- * Razorpay throttles link creation, and seven links in fifteen seconds tripped
- * it; two or three do not. An earlier version capped the count instead, which
- * worked but left some cards with a Pay button and some without, for reasons
- * nothing on screen explained.
- *
- * A GROUP ID, not an order id, is the `reference_id`. One link now covers
- * several orders, so the webhook needs to find all of them, and Razorpay's
- * reference field is a single string. Every transaction in a merchant's basket
- * carries the same generated group id, the link quotes it, and settlement marks
- * the whole group paid.
- *
- * NOTHING HERE CAN FAIL A RUN. Every order is already real and already
- * authorized. A link that could not be created is a settlement inconvenience, so
- * failures are logged and skipped, never thrown.
+ * Settlement: one Payment Link per merchant, created once the run is over.
  */
 
 export interface BasketItem {
@@ -54,10 +28,6 @@ function newGroupId(): string {
 
 /**
  * Creates one Payment Link per merchant for everything this run authorized.
- *
- * Returns a basket per merchant, in descending amount order, so the console can
- * show the biggest first. Already-settled runs return their existing links
- * rather than making new ones.
  */
 export async function settleRun(runId: string): Promise<MerchantBasket[]> {
   const transactions = await prisma.transaction.findMany({

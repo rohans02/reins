@@ -20,16 +20,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * Mandates — every piece of spending authority that exists, in one list.
- *
- * This screen is what makes concurrent mandates safe to allow. Signing used to
- * revoke whatever came before, because the console could only ever show one and
- * an unseen ACTIVE mandate is spendable authority nobody is watching. The fix
- * for authority you cannot see is to show it, not to destroy it.
- *
- * So the loudest thing on the page is the combined figure: everything every
- * live mandate could still spend, added up. Any single mandate understates the
- * real exposure, and that total is the number a person needs before deciding
- * whether something should be revoked.
  */
 
 export interface ManagedMandate {

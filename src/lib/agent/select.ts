@@ -4,15 +4,6 @@ import { DEMO_SCRIPT } from './demo-script'
 
 /**
  * Picks the model the console runs against.
- *
- * Order of preference:
- *   1. DEMO_MODE=scripted            the on-camera fallback, always wins
- *   2. AGENT_PROVIDER, if set        explicit override: "gemini" or "anthropic"
- *   3. whichever key is present      Gemini first, since it has a free tier
- *   4. scripted                      so the product is demonstrable with no keys
- *
- * Whatever is chosen, the policy engine, the ledger and the Razorpay orders are
- * real. The only thing that changes is who decides what to shop for.
  */
 
 /**

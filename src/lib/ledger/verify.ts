@@ -3,14 +3,6 @@ import { GENESIS_HASH, computeRowHash, type LedgerDigest } from './chain'
 
 /**
  * Recompute the entire chain and report the first divergence.
- *
- * Powers the "Chain verified" badge — a claim a judge can check, not one we
- * assert.
- *
- * NOTE: this deliberately takes no mandate filter. The chain is global: row N's
- * prevHash points at row N-1 across ALL mandates. Verifying a per-mandate subset
- * would skip rows and report false corruption. The Ledger screen may *filter*
- * what it displays, but integrity is always verified over the whole ledger.
  */
 export interface ChainVerification {
   verified: boolean

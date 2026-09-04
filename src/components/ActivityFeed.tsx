@@ -7,14 +7,6 @@ import { cn } from '@/lib/utils'
 
 /**
  * The single stream judges watch for five minutes.
- *
- * The agent's narration, its tool calls, and the engine's verdicts are ONE feed,
- * not two columns — splitting them makes the eye choose, and the eye should
- * never have to choose during the block.
- *
- * A BLOCK row is deliberately loud: larger, red, sustained. It is NOT a shake.
- * Shake reads as malfunction, and the whole argument is that a refusal is the
- * system working exactly as designed. The entrance is confident, not panicked.
  */
 
 export interface PlannedItem {
@@ -83,10 +75,6 @@ function plainReason(codes: string[]): string {
 
 /**
  * Renders a tool call as a sentence.
- *
- * Watching an agent fire `search_catalog({"category":"groceries"})` tells you it
- * did something; it does not tell you what it is trying to do. Saying so in
- * words is the difference between a black box and an assistant you can follow.
  */
 function describeToolCall(name: string, input: Record<string, unknown>): string {
   const str = (k: string) => (typeof input[k] === 'string' ? (input[k] as string) : undefined)
@@ -117,16 +105,6 @@ function describeToolCall(name: string, input: Record<string, unknown>): string 
 
 /**
  * Strips the markdown a live model sprinkles into prose.
- *
- * The feed is a transcript, not a document. A real model writes "**Great**, I
- * secured the atta" and the asterisks render literally, which reads as a bug in
- * the product rather than a habit of the model. The scripted run never shows
- * this because its lines were written by hand.
- *
- * Deliberately a strip and not a renderer. Pulling in a markdown library to
- * support emphasis nobody asked for would be a dependency bought for a
- * cosmetic, and headings or tables in an agent's narration would be worse than
- * the asterisks.
  */
 function stripMarkdown(text: string): string {
   return text
@@ -259,14 +237,8 @@ function Row({ row }: { row: FeedRow }) {
   if (row.kind === 'settlement') {
     const total = row.baskets.reduce((sum, b) => sum + b.amountPaise, 0)
     return (
-      // A SUMMARY, not another verdict.
-      //
-      // It carried the same card shell and the same emerald left border as an
-      // allowed purchase, which made the run's conclusion read as one more line
-      // item. The accent bar is gone because that stripe means "the engine
-      // allowed this", and settlement is not a verdict. What replaces it is a
-      // filled panel and a rule above, so the eye reads a change of register
-      // rather than another row.
+      // A summary, not another verdict, so it drops the emerald accent that
+      // means "the engine allowed this" and reads as a change of register.
       <div className="rn-enter mt-4 border-t-2 border-border pt-4">
         <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-4">
           <div className="flex items-end justify-between gap-3">
